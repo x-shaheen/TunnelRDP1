@@ -1,0 +1,416 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Monitor, Copy, Trash2, RefreshCw, Clock, Zap, CheckCircle, AlertCircle, Server, Shield, Users } from 'lucide-react';
+import { Session } from 'next-auth';
+import {
+  getSessions,
+  removeSession,
+  updateSessionConnectionDetails,
+  subscribeToSessions,
+  type StoredSession
+} from '@/utils/supabase-storage';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
+import { useToast, ToastContainer } from './Toast';
+
+interface LiveRDPDashboardProps {
+  session: Session;
+  onBack: () => void;
+}
+
+export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardProps) {
+  const { isAuthenticated, isLoading } = useSupabaseUser();
+  const [activeSessions, setActiveSessions] = useState<StoredSession[]>([]);
+  const [refreshingSession, setRefreshingSession] = useState<string | null>(null);
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  const { toasts, removeToast, showSuccess, showError } = useToast();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadActiveSessions();
+
+      // Set up real-time subscription
+      const subscription = subscribeToSessions((sessions) => {
+        setActiveSessions(sessions);
+        setLoadingError(null);
+      });
+
+      // Fallback: refresh sessions every 30 seconds
+      const interval = setInterval(loadActiveSessions, 30000);
+
+      return () => {
+        clearInterval(interval);
+        if (subscription) {
+          subscription.unsubscribe();
+        }
+      };
+    }
+  }, [isAuthenticated]);
+
+  const loadActiveSessions = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      setLoadingError(null);
+      const sessions = await getSessions();
+      setActiveSessions(sessions);
+    } catch (error) {
+      console.error('Failed to load sessions:', error);
+      setLoadingError('Failed to load sessions. Please check your connection.');
+    }
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      showSuccess('COPY_SUCCESS', `${label} copied to neural clipboard`);
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      showError('COPY_ERROR', `Failed to copy ${label} to clipboard`);
+    }
+  };
+
+  const deleteSession = async (repositoryUrl: string) => {
+    try {
+      await removeSession(repositoryUrl);
+      await loadActiveSessions();
+      showSuccess('SESSION_TERMINATED', 'RDP session removed from neural network');
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      showError('DELETE_ERROR', 'Failed to remove session. Please try again.');
+    }
+  };
+
+  const refreshSessionStatus = async (sessionData: StoredSession) => {
+    if (!sessionData.repositoryUrl) return;
+    
+    setRefreshingSession(sessionData.repositoryUrl);
+    
+    try {
+      const urlParts = sessionData.repositoryUrl.split('/');
+      const owner = urlParts[urlParts.length - 2];
+      const repo = urlParts[urlParts.length - 1];
+
+      const response = await fetch('/api/get-credentials', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          githubToken: session.accessToken,
+          owner,
+          repo
+        })
+      });
+
+      const result = await response.json();
+      if (result.success && result.connectionDetails) {
+        await updateSessionConnectionDetails(sessionData.repositoryUrl, result.connectionDetails);
+        await loadActiveSessions();
+        showSuccess('REFRESH_SUCCESS', 'Session data synchronized from neural repository');
+      } else {
+        showError('REFRESH_ERROR', 'Failed to retrieve updated session data');
+      }
+    } catch (error) {
+      console.error('Failed to refresh session:', error);
+      showError('REFRESH_ERROR', 'Neural connection failed during refresh');
+    } finally {
+      setRefreshingSession(null);
+    }
+  };
+
+  const getTimeRemaining = (session: StoredSession) => {
+    const now = Date.now();
+    const remaining = session.expiresAt - now;
+    if (remaining <= 0) return 'Expired';
+    
+    const hours = Math.floor(remaining / (1000 * 60 * 60));
+    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+    return `${hours}h ${minutes}m`;
+  };
+
+  const getStatusColor = (status: StoredSession['status']) => {
+    switch (status) {
+      case 'completed': return 'text-[var(--success)]';
+      case 'deploying': return 'text-[var(--accent-primary)]';
+      case 'creating': return 'text-[var(--warning)]';
+      case 'error': return 'text-[var(--error)]';
+      default: return 'text-[var(--text-muted)]';
+    }
+  };
+
+  const getStatusIcon = (status: StoredSession['status']) => {
+    switch (status) {
+      case 'completed': return <CheckCircle className="h-5 w-5" />;
+      case 'deploying': return <Zap className="h-5 w-5 animate-pulse" />;
+      case 'creating': return <RefreshCw className="h-5 w-5 animate-spin" />;
+      case 'error': return <AlertCircle className="h-5 w-5" />;
+      default: return <Clock className="h-5 w-5" />;
+    }
+  };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <>
+        <div className="card-elevated p-12 text-center">
+          <RefreshCw className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50 animate-spin" />
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+            LOADING SESSIONS
+          </h3>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Connecting to neural network...
+          </p>
+        </div>
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+      </>
+    );
+  }
+
+  // Show error state
+  if (loadingError) {
+    return (
+      <>
+        <div className="card-elevated p-12 text-center">
+          <AlertCircle className="h-16 w-16 text-[var(--error)] mx-auto mb-6 opacity-50" />
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+            CONNECTION ERROR
+          </h3>
+          <p className="text-xs text-[var(--text-secondary)] mb-4">
+            {loadingError}
+          </p>
+          <button
+            onClick={loadActiveSessions}
+            className="btn-primary"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            RETRY
+          </button>
+        </div>
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+      </>
+    );
+  }
+
+  if (activeSessions.length === 0) {
+    return (
+      <>
+        <div className="card-elevated p-12 text-center">
+          <Monitor className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50" />
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+            NO ACTIVE SESSIONS
+          </h3>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Deploy your first covert RDP server to monitor connections
+          </p>
+        </div>
+        <ToastContainer toasts={toasts} onClose={removeToast} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        <div className="text-center mb-8">
+          <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+            ACTIVE SECRET SESSIONS
+          </h2>
+          <p className="text-[var(--text-secondary)]">
+            Active connections: <span className="text-[var(--success)] font-semibold">{activeSessions.length}</span>
+          </p>
+        </div>
+
+      <div className="grid gap-6">
+        {activeSessions.map((sessionData) => (
+          <div key={sessionData.repositoryUrl} className="card-elevated p-6">
+            <div className="flex items-start justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+                  {sessionData.repositoryName}
+                </h3>
+                <div className={`flex items-center space-x-2 ${getStatusColor(sessionData.status)}`}>
+                  {getStatusIcon(sessionData.status)}
+                  <span className="font-medium capitalize">
+                    {sessionData.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3">
+                <div className="text-right">
+                  <div className="text-sm text-[var(--text-secondary)]">Time Remaining</div>
+                  <div className="text-[var(--warning)] font-semibold">
+                    {getTimeRemaining(sessionData)}
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => refreshSessionStatus(sessionData)}
+                  disabled={refreshingSession === sessionData.repositoryUrl}
+                  className="btn-secondary p-3 disabled:opacity-50"
+                  title="Refresh session status"
+                >
+                  <RefreshCw className={`h-4 w-4 ${
+                    refreshingSession === sessionData.repositoryUrl ? 'animate-spin' : ''
+                  }`} />
+                </button>
+
+                <button
+                  onClick={() => deleteSession(sessionData.repositoryUrl)}
+                  className="btn-secondary p-3 hover:bg-[var(--error)]/10 hover:border-[var(--error)] hover:text-[var(--error)]"
+                  title="Delete session"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {sessionData.connectionDetails && (
+              <section className="bg-gray-50 py-8 dark:bg-transparent mt-6">
+                <div className="mx-auto max-w-4xl">
+                  <div className="text-center mb-8">
+                    <h4 className="text-xl font-bold text-[var(--text-primary)] mb-2">
+                      CONNECTION CREDENTIALS
+                    </h4>
+                    <div className="text-sm text-[var(--text-secondary)] font-mono">
+                      Active RDP server credentials
+                    </div>
+                  </div>
+
+                  <div className="relative">
+                    <div className="relative z-10 grid grid-cols-6 gap-3">
+                      <div className="relative col-span-full flex overflow-hidden lg:col-span-2">
+                        <div className="card relative m-auto size-fit pt-6 w-full">
+                          <div className="relative flex h-24 w-full items-center justify-center">
+                            <svg className="text-muted absolute inset-0 size-full" viewBox="0 0 254 104" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path
+                                d="M112.891 97.7022C140.366 97.0802 171.004 94.6715 201.087 87.5116C210.43 85.2881 219.615 82.6412 228.284 78.2473"
+                                fill="url(#paint0_linear_host_dash)"
+                              />
+                              <path className="text-success" d="M3 72H209" stroke="currentColor" strokeWidth="6" strokeLinecap="round" />
+                              <defs>
+                                <linearGradient id="paint0_linear_host_dash" x1="106.385" y1="1.34375" x2="106" y2="72" gradientUnits="userSpaceOnUse">
+                                  <stop stopColor="white" stopOpacity="0" />
+                                  <stop className="text-success" offset="1" stopColor="currentColor" />
+                                </linearGradient>
+                              </defs>
+                            </svg>
+                            <div className="relative z-10">
+                              <Server className="h-8 w-8 text-[var(--success)]" />
+                            </div>
+                          </div>
+                          <div className="relative z-10 mt-6 space-y-2 text-center p-6">
+                            <h2 className="text-lg font-medium transition dark:text-white">Host Address</h2>
+                            <div className="flex items-center justify-between bg-[var(--bg-tertiary)] px-3 py-2 rounded border border-[var(--border-primary)]">
+                              <code className="text-[var(--success)] font-mono text-sm break-all">
+                                {sessionData.connectionDetails.host}
+                              </code>
+                              <button
+                                onClick={() => copyToClipboard(sessionData.connectionDetails!.host, 'Host')}
+                                className="ml-2 p-1 hover:bg-[var(--success)]/10 rounded transition-colors"
+                                title="Copy host"
+                              >
+                                <Copy className="h-4 w-4 text-[var(--success)]" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative col-span-full overflow-hidden sm:col-span-3 lg:col-span-2">
+                        <div className="card pt-6 h-full">
+                          <div className="pt-6 lg:px-6">
+                            <svg className="dark:text-muted-foreground w-full" viewBox="0 0 386 123" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <rect width="386" height="123" rx="10" />
+                              <path
+                                className="text-accent-primary"
+                                d="M3 121.077C3 121.077 15.3041 93.6691 36.0195 87.756C56.7349 81.8429 66.6632 80.9723 66.6632 80.9723"
+                                stroke="currentColor"
+                                strokeWidth="3"
+                              />
+                              <circle className="text-accent-primary" cx="50" cy="50" r="12" fill="currentColor" />
+                              <Users className="absolute top-12 left-12 h-6 w-6 text-white" />
+                            </svg>
+                          </div>
+                          <div className="relative z-10 mt-14 space-y-2 text-center p-6">
+                            <h2 className="text-lg font-medium transition">Username</h2>
+                            <div className="flex items-center justify-between bg-[var(--bg-tertiary)] px-3 py-2 rounded border border-[var(--border-primary)]">
+                              <code className="text-[var(--accent-primary)] font-mono text-sm">
+                                {sessionData.connectionDetails.username}
+                              </code>
+                              <button
+                                onClick={() => copyToClipboard(sessionData.connectionDetails!.username, 'Username')}
+                                className="ml-2 p-1 hover:bg-[var(--accent-primary)]/10 rounded transition-colors"
+                                title="Copy username"
+                              >
+                                <Copy className="h-4 w-4 text-[var(--accent-primary)]" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative col-span-full overflow-hidden lg:col-span-2">
+                        <div className="card grid h-full pt-6 sm:grid-cols-1">
+                          <div className="relative z-10 flex flex-col justify-between space-y-12 lg:space-y-6 p-6">
+                            <div className="relative flex aspect-square size-12 rounded-full border before:absolute before:-inset-2 before:rounded-full before:border dark:border-white/10 dark:before:border-white/5 mx-auto">
+                              <Shield className="m-auto size-6 text-[var(--warning)]" strokeWidth={1} />
+                            </div>
+                            <div className="space-y-2 text-center">
+                              <h2 className="text-lg font-medium transition">Password</h2>
+                              <div className="flex items-center justify-between bg-[var(--bg-tertiary)] px-3 py-2 rounded border border-[var(--border-primary)]">
+                                <code className="text-[var(--warning)] font-mono text-sm">
+                                  {sessionData.connectionDetails.password}
+                                </code>
+                                <button
+                                  onClick={() => copyToClipboard(sessionData.connectionDetails!.password, 'Password')}
+                                  className="ml-2 p-1 hover:bg-[var(--warning)]/10 rounded transition-colors"
+                                  title="Copy password"
+                                >
+                                  <Copy className="h-4 w-4 text-[var(--warning)]" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative col-span-full overflow-hidden">
+                        <div className="card p-6">
+                          <div className="flex items-center space-x-3 mb-4">
+                            <div className="relative">
+                              <div className="absolute inset-0 bg-[var(--accent-primary)] rounded-full blur-md opacity-20"></div>
+                              <div className="relative bg-gradient-to-br from-[var(--accent-primary)] to-blue-600 p-2 rounded-full">
+                                <Monitor className="h-5 w-5 text-black" />
+                              </div>
+                            </div>
+                            <h4 className="text-lg font-bold text-[var(--text-primary)]">Connection String</h4>
+                          </div>
+                          <div className="bg-[var(--bg-tertiary)] px-4 py-3 rounded border border-[var(--border-primary)] font-mono text-sm text-[var(--text-primary)] break-all">
+                            mstsc /v:{sessionData.connectionDetails.host} /u:{sessionData.connectionDetails.username}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {!sessionData.connectionDetails && sessionData.status !== 'error' && (
+              <div className="text-center py-8">
+                <Zap className="h-12 w-12 text-[var(--cyber-blue)] mx-auto mb-4 animate-pulse" />
+                <div className="text-[var(--cyber-blue)] font-mono">
+                  NEURAL_DEPLOYMENT_IN_PROGRESS...
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      </div>
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+    </>
+  );
+}

@@ -1,36 +1,156 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RDP Automation - Free Windows RDP Server Creator
 
-## Getting Started
+🚀 **Automatically create free Windows RDP servers using GitHub Actions and multiple free tunneling providers!**
 
-First, run the development server:
+This web application provides a fully automated solution to deploy Windows RDP servers without any manual setup or payment requirements. Choose from multiple free tunneling providers and the system will:
 
+1. Create a private GitHub repository
+2. Set up GitHub Actions workflow for Windows RDP
+3. Configure your chosen tunneling provider (localhost.run, Serveo, Pinggy, or Ngrok)
+4. Deploy and provide connection details
+
+## ✨ Features
+
+- **Fully Automated**: No manual repository creation or configuration needed
+- **Multiple Free Options**: Choose from localhost.run, Serveo, Pinggy, or Ngrok
+- **No Payment Required**: Free tier options available without credit card verification
+- **Secure**: Private repositories with encrypted secrets (when needed)
+- **User-Friendly**: Step-by-step wizard interface with provider selection
+- **Real-time Monitoring**: Live status updates during deployment
+
+## 🛠️ Prerequisites
+
+Before using this application, you need:
+
+1. **GitHub Account** (free)
+   - The app uses GitHub OAuth for authentication
+   - No manual token creation needed!
+
+2. **Tunneling Provider** (choose one):
+   - **Serveo** (free, supports custom subdomains) ⭐ **RECOMMENDED**
+   - **Pinggy** (free tier with unlimited bandwidth)
+   - **Ngrok** (requires payment verification for TCP endpoints)
+   - **localhost.run** (HTTP/HTTPS only - not suitable for RDP)
+
+## 🚀 Getting Started
+
+### For Users
+
+1. Visit the deployed application
+2. Click "Sign in with GitHub"
+3. Authorize the application
+4. **Choose your tunneling provider:**
+   - **Serveo** (recommended - free with custom subdomain support)
+   - **Pinggy** (free with unlimited bandwidth)
+   - **Ngrok** (requires payment verification)
+5. Configure your deployment settings
+6. Click "Deploy RDP Server"
+7. Wait for deployment (2-3 minutes)
+8. Get your RDP connection details!
+
+## 🌐 Tunneling Providers
+
+### Serveo ⭐ **RECOMMENDED**
+- **Cost**: Free
+- **Setup**: No signup required
+- **Features**: SSH-based tunneling, custom subdomain support
+- **Best for**: Users who want custom subdomains
+
+### Pinggy
+- **Cost**: Free tier available
+- **Setup**: No signup required for basic use
+- **Features**: Unlimited bandwidth, advanced features, UDP support
+- **Best for**: Users who need advanced features
+
+### Ngrok
+- **Cost**: Requires payment verification (no charges for basic usage)
+- **Setup**: Account required, auth token needed
+- **Features**: Advanced routing, custom domains, enterprise features
+- **Best for**: Production use and advanced requirements
+
+### localhost.run ❌ **NOT SUPPORTED**
+- **Cost**: Free
+- **Setup**: No signup required
+- **Features**: HTTP/HTTPS tunneling only
+- **Limitation**: Does not support TCP/RDP connections
+- **Best for**: Web applications only (not suitable for RDP)
+
+### For Developers
+
+1. Clone this repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd rdp-automation
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Set up environment variables:
+```bash
+cp .env.local.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Create a GitHub OAuth App:
+   - Go to https://github.com/settings/applications/new
+   - Set Authorization callback URL to: `http://localhost:3000/api/auth/callback/github`
+   - Copy Client ID and Client Secret to `.env.local`
 
-## Learn More
+5. Generate NextAuth secret:
+```bash
+openssl rand -base64 32
+```
+Add this to `.env.local` as `NEXTAUTH_SECRET`
 
-To learn more about Next.js, take a look at the following resources:
+6. Run the development server:
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+7. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔧 How It Works
 
-## Deploy on Vercel
+1. **Repository Creation**: Creates a private GitHub repository with your specified name
+2. **Workflow Setup**: Deploys a GitHub Actions workflow that:
+   - Downloads and configures Ngrok
+   - Enables Windows Remote Desktop
+   - Sets up user credentials (runneradmin/P@ssw0rd!)
+   - Creates Ngrok tunnel for RDP access
+3. **Secret Management**: Securely stores your Ngrok token as a GitHub secret
+4. **Monitoring**: Polls workflow status and extracts connection details
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📋 RDP Connection Details
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Once deployed, you'll receive:
+- **Host**: Ngrok tunnel URL (e.g., 0.tcp.ngrok.io:12345)
+- **Username**: runneradmin
+- **Password**: P@ssw0rd!
+
+## 🔒 Security Notes
+
+- All repositories are created as private
+- Tokens are encrypted using GitHub's secret encryption
+- No credentials are stored on our servers
+- Ngrok tunnels are temporary and session-based
+
+## 🛡️ Limitations
+
+- GitHub Actions free tier: 2,000 minutes/month
+- Ngrok free tier: Limited concurrent tunnels
+- RDP sessions are temporary (workflow duration)
+- Windows Server 2022 environment
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is open source and available under the MIT License.
+
+## ⚠️ Disclaimer
+
+This tool is for educational and development purposes. Please ensure you comply with GitHub's and Ngrok's terms of service. Use responsibly and only for legitimate purposes.
