@@ -12,6 +12,9 @@ import {
 } from '@/utils/supabase-storage';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 import { useToast, ToastContainer } from './Toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface LiveRDPDashboardProps {
   session: Session;
@@ -153,15 +156,17 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
   if (isLoading) {
     return (
       <>
-        <div className="card-elevated p-12 text-center">
-          <RefreshCw className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50 animate-spin" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
-            LOADING SESSIONS
-          </h3>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Connecting to neural network...
-          </p>
-        </div>
+        <Card className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+          <CardContent className="p-12 text-center">
+            <RefreshCw className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50 animate-spin" />
+            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+              LOADING SESSIONS
+            </CardTitle>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Connecting to neural network...
+            </p>
+          </CardContent>
+        </Card>
         <ToastContainer toasts={toasts} onClose={removeToast} />
       </>
     );
@@ -171,22 +176,24 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
   if (loadingError) {
     return (
       <>
-        <div className="card-elevated p-12 text-center">
-          <AlertCircle className="h-16 w-16 text-[var(--error)] mx-auto mb-6 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
-            CONNECTION ERROR
-          </h3>
-          <p className="text-xs text-[var(--text-secondary)] mb-4">
-            {loadingError}
-          </p>
-          <button
-            onClick={loadActiveSessions}
-            className="btn-primary"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            RETRY
-          </button>
-        </div>
+        <Card className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+          <CardContent className="p-12 text-center">
+            <AlertCircle className="h-16 w-16 text-[var(--error)] mx-auto mb-6 opacity-50" />
+            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+              CONNECTION ERROR
+            </CardTitle>
+            <p className="text-xs text-[var(--text-secondary)] mb-4">
+              {loadingError}
+            </p>
+            <Button
+              onClick={loadActiveSessions}
+              className="bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              RETRY
+            </Button>
+          </CardContent>
+        </Card>
         <ToastContainer toasts={toasts} onClose={removeToast} />
       </>
     );
@@ -195,15 +202,17 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
   if (activeSessions.length === 0) {
     return (
       <>
-        <div className="card-elevated p-12 text-center">
-          <Monitor className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
-            NO ACTIVE SESSIONS
-          </h3>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Deploy your first covert RDP server to monitor connections
-          </p>
-        </div>
+        <Card className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+          <CardContent className="p-12 text-center">
+            <Monitor className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50" />
+            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+              NO ACTIVE SESSIONS
+            </CardTitle>
+            <p className="text-xs text-[var(--text-secondary)]">
+              Deploy your first covert RDP server to monitor connections
+            </p>
+          </CardContent>
+        </Card>
         <ToastContainer toasts={toasts} onClose={removeToast} />
       </>
     );
@@ -223,19 +232,20 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
 
       <div className="grid gap-6">
         {activeSessions.map((sessionData) => (
-          <div key={sessionData.repositoryUrl} className="card-elevated p-6">
-            <div className="flex items-start justify-between mb-6">
-              <div>
-                <h3 className="text-xl font-semibold text-[var(--text-primary)] mb-2">
-                  {sessionData.repositoryName}
-                </h3>
-                <div className={`flex items-center space-x-2 ${getStatusColor(sessionData.status)}`}>
-                  {getStatusIcon(sessionData.status)}
-                  <span className="font-medium capitalize">
-                    {sessionData.status}
-                  </span>
+          <Card key={sessionData.repositoryUrl} className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+            <CardHeader className="pb-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <CardTitle className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+                    {sessionData.repositoryName}
+                  </CardTitle>
+                  <div className={`flex items-center space-x-2 ${getStatusColor(sessionData.status)}`}>
+                    {getStatusIcon(sessionData.status)}
+                    <Badge variant="outline" className={`capitalize ${getStatusColor(sessionData.status)} border-current`}>
+                      {sessionData.status}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
 
               <div className="flex items-center space-x-3">
                 <div className="text-right">
@@ -245,29 +255,35 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
                   </div>
                 </div>
                 
-                <button
+                <Button
                   onClick={() => refreshSessionStatus(sessionData)}
                   disabled={refreshingSession === sessionData.repositoryUrl}
-                  className="btn-secondary p-3 disabled:opacity-50"
+                  variant="outline"
+                  size="icon"
+                  className="border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
                   title="Refresh session status"
                 >
                   <RefreshCw className={`h-4 w-4 ${
                     refreshingSession === sessionData.repositoryUrl ? 'animate-spin' : ''
                   }`} />
-                </button>
+                </Button>
 
-                <button
+                <Button
                   onClick={() => deleteSession(sessionData.repositoryUrl)}
-                  className="btn-secondary p-3 hover:bg-[var(--error)]/10 hover:border-[var(--error)] hover:text-[var(--error)]"
+                  variant="outline"
+                  size="icon"
+                  className="border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--error)]/10 hover:border-[var(--error)] hover:text-[var(--error)]"
                   title="Delete session"
                 >
                   <Trash2 className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
-            </div>
+              </div>
+            </CardHeader>
 
             {sessionData.connectionDetails && (
-              <section className="bg-gray-50 py-8 dark:bg-transparent mt-6">
+              <CardContent>
+                <section className="bg-gray-50 py-8 dark:bg-transparent mt-6">
                 <div className="mx-auto max-w-4xl">
                   <div className="text-center mb-8">
                     <h4 className="text-xl font-bold text-[var(--text-primary)] mb-2">
@@ -377,36 +393,43 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
                       </div>
 
                       <div className="relative col-span-full overflow-hidden">
-                        <div className="card p-6">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <div className="relative">
-                              <div className="absolute inset-0 bg-[var(--accent-primary)] rounded-full blur-md opacity-20"></div>
-                              <div className="relative bg-gradient-to-br from-[var(--accent-primary)] to-blue-600 p-2 rounded-full">
-                                <Monitor className="h-5 w-5 text-black" />
+                        <Card className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+                          <CardHeader className="pb-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="relative">
+                                <div className="absolute inset-0 bg-[var(--accent-primary)] rounded-full blur-md opacity-20"></div>
+                                <div className="relative bg-gradient-to-br from-[var(--accent-primary)] to-blue-600 p-2 rounded-full">
+                                  <Monitor className="h-5 w-5 text-black" />
+                                </div>
                               </div>
+                              <CardTitle className="text-lg font-bold text-[var(--text-primary)]">Connection String</CardTitle>
                             </div>
-                            <h4 className="text-lg font-bold text-[var(--text-primary)]">Connection String</h4>
-                          </div>
-                          <div className="bg-[var(--bg-tertiary)] px-4 py-3 rounded border border-[var(--border-primary)] font-mono text-sm text-[var(--text-primary)] break-all">
-                            mstsc /v:{sessionData.connectionDetails.host} /u:{sessionData.connectionDetails.username}
-                          </div>
-                        </div>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <div className="bg-[var(--bg-tertiary)] px-4 py-3 rounded border border-[var(--border-primary)] font-mono text-sm text-[var(--text-primary)] break-all">
+                              mstsc /v:{sessionData.connectionDetails.host} /u:{sessionData.connectionDetails.username}
+                            </div>
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
                   </div>
                 </div>
               </section>
+              </CardContent>
             )}
 
             {!sessionData.connectionDetails && sessionData.status !== 'error' && (
-              <div className="text-center py-8">
-                <Zap className="h-12 w-12 text-[var(--cyber-blue)] mx-auto mb-4 animate-pulse" />
-                <div className="text-[var(--cyber-blue)] font-mono">
-                  NEURAL_DEPLOYMENT_IN_PROGRESS...
+              <CardContent>
+                <div className="text-center py-8">
+                  <Zap className="h-12 w-12 text-[var(--cyber-blue)] mx-auto mb-4 animate-pulse" />
+                  <div className="text-[var(--cyber-blue)] font-mono">
+                    NEURAL_DEPLOYMENT_IN_PROGRESS...
+                  </div>
                 </div>
-              </div>
+              </CardContent>
             )}
-          </div>
+          </Card>
         ))}
       </div>
       </div>

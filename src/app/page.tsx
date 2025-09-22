@@ -5,8 +5,10 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import { Monitor, Github, Zap, Shield, ArrowRight, CheckCircle, LogOut, Server, Plus } from 'lucide-react';
 import SetupWizard from '@/components/SetupWizard';
 import LiveRDPDashboard from '@/components/LiveRDPDashboard';
-import { Features } from '@/components/Features';
+import { EnhancedFeatures } from '@/components/EnhancedFeatures';
 import { Logo } from '@/components/Logo';
+import { DottedSurface } from '@/components/ui/dotted-surface';
+import { Button } from '@/components/ui/button';
 
 type ViewMode = 'home' | 'wizard' | 'dashboard';
 
@@ -20,146 +22,173 @@ export default function Home() {
 
   if (currentView === 'dashboard' && session) {
     return (
-      <div className="min-h-screen bg-[var(--bg-primary)]">
-        <header className="border-b border-[var(--border-primary)]">
-          <div className="container-custom py-6">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setCurrentView('home')}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <ArrowRight className="h-4 w-4 rotate-180" />
-                <span>Back to Home</span>
-              </button>
-              <div className="flex items-center space-x-3">
-                <Server className="h-6 w-6 text-[var(--accent-primary)]" />
-                <div>
-                  <h1 className="text-lg font-semibold text-[var(--text-primary)]">
-                    RDP Dashboard
-                  </h1>
-                  <div className="text-xs text-[var(--text-secondary)]">Live connection monitor</div>
+      <div className="min-h-screen bg-black text-white relative overflow-hidden">
+        {/* Dotted Surface Background */}
+        <DottedSurface />
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-black/70 to-black/90 pointer-events-none z-0" />
+
+        {/* Content Container */}
+        <div className="relative z-10">
+          <header className="border-b border-gray-800/50 bg-black/30 backdrop-blur-md">
+            <div className="container-custom py-6">
+              <div className="flex items-center justify-between">
+                <Button
+                  onClick={() => setCurrentView('home')}
+                  variant="outline"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-800/50 bg-transparent"
+                >
+                  <ArrowRight className="h-4 w-4 rotate-180" />
+                  <span>Back to Home</span>
+                </Button>
+                <div className="flex items-center space-x-3">
+                  <Server className="h-6 w-6 text-blue-400" />
+                  <div>
+                    <h1 className="text-lg font-semibold text-white">
+                      RDP Dashboard
+                    </h1>
+                    <div className="text-xs text-gray-400">Live connection monitor</div>
+                  </div>
                 </div>
+                <Button
+                  onClick={() => setCurrentView('wizard')}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>NEW DEPLOYMENT</span>
+                </Button>
               </div>
-              <button
-                onClick={() => setCurrentView('wizard')}
-                className="btn-primary flex items-center space-x-2"
-              >
-                <Plus className="h-4 w-4" />
-                <span>NEW DEPLOYMENT</span>
-              </button>
             </div>
-          </div>
-        </header>
-        <main className="container-custom py-8">
-          <LiveRDPDashboard onBack={() => setCurrentView('home')} session={session} />
-        </main>
+          </header>
+          <main className="container-custom py-8">
+            <LiveRDPDashboard onBack={() => setCurrentView('home')} session={session} />
+          </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)]">
-      <header className="border-b border-[var(--border-primary)]">
-        <div className="container-custom py-6">
-          <div className="flex items-center justify-between">
-            <Logo />
-            <div className="flex items-center space-x-4">
-              {session ? (
-                <div className="flex items-center space-x-4">
-                  <div className="card px-4 py-2">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <img
-                          src={session.user?.image || ''}
-                          alt={session.user?.name || ''}
-                          className="h-8 w-8 rounded-full border-2 border-[var(--accent-primary)]"
-                        />
-                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-[var(--success)] rounded-full"></div>
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-[var(--text-primary)]">
-                          {session.user?.name}
+    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+      {/* Dotted Surface Background */}
+      <DottedSurface />
+
+      {/* Gradient Overlay for better text readability */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/90 via-black/70 to-black/90 pointer-events-none z-0" />
+
+      {/* Content Container */}
+      <div className="relative z-10">
+        <header className="border-b border-gray-800/50 bg-black/30 backdrop-blur-md">
+          <div className="container-custom py-6">
+            <div className="flex items-center justify-between">
+              <Logo />
+              <div className="flex items-center space-x-4">
+                {session ? (
+                  <div className="flex items-center space-x-4">
+                    <div className="card px-4 py-2 bg-white/5 backdrop-blur-sm border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <div className="relative">
+                          <img
+                            src={session.user?.image || ''}
+                            alt={session.user?.name || ''}
+                            className="h-8 w-8 rounded-full border-2 border-blue-400"
+                          />
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full"></div>
                         </div>
-                        <div className="text-xs text-[var(--text-secondary)]">Authenticated</div>
+                        <div className="hidden sm:block">
+                          <div className="text-sm font-medium text-white">
+                            {session.user?.name}
+                          </div>
+                          <div className="text-xs text-gray-300">Authenticated</div>
+                        </div>
                       </div>
                     </div>
+                    <Button
+                      onClick={() => signOut()}
+                      variant="outline"
+                      size="sm"
+                      className="text-red-400 border-red-400/50 hover:bg-red-500/10 bg-transparent"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <LogOut className="h-4 w-4" />
+                        <span className="hidden sm:inline">Sign Out</span>
+                      </div>
+                    </Button>
                   </div>
-                  <button
-                    onClick={() => signOut()}
-                    className="btn-secondary text-[var(--error)] border-[var(--error)] hover:bg-[var(--error)] hover:text-white"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <LogOut className="h-4 w-4" />
-                      <span>Sign Out</span>
-                    </div>
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-3 card px-4 py-2">
-                  <Github className="h-5 w-5 text-[var(--accent-primary)]" />
-                  <span className="text-sm text-[var(--text-secondary)]">Powered by GitHub Actions</span>
-                </div>
-              )}
+                ) : (
+                  <div className="flex items-center space-x-3 card px-4 py-2 bg-white/5 backdrop-blur-sm border-white/10">
+                    <Github className="h-5 w-5 text-blue-400" />
+                    <span className="text-sm text-gray-300 hidden sm:inline">Powered by GitHub Actions</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="container-custom py-16">
-        <div className="text-center mb-20">
-          <div className="mb-8">
-            <div className="inline-block px-3 py-1 rounded-full card mb-4">
-              <span className="text-[var(--accent-primary)] text-xs font-medium">secret rdp v2.1</span>
+        <main className="container-custom py-16">
+          <div className="text-center mb-20">
+            <div className="mb-8">
+              <div className="inline-block px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 mb-6">
+                <span className="text-blue-400 text-xs font-medium tracking-wider">TUNNELRDP v2.1</span>
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold mb-6 leading-tight">
+                <span className="bg-gradient-to-r from-white via-gray-200 to-white bg-clip-text text-transparent">
+                  Deploy Professional RDP Servers
+                </span>
+                <br />
+                <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+                  Enterprise Ready
+                </span>
+              </h2>
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold mb-4 leading-tight text-[var(--text-primary)]">
-              Deploy Professional RDP Servers
+
+            <p className="text-lg text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed">
+              <span className="text-green-400 font-semibold">Private RDP in one click</span> -
+              <span className="text-blue-400 font-semibold"> Free forever!</span>
               <br />
-              <span className="text-[var(--accent-primary)]">Enterprise Ready</span>
-            </h2>
+              <span className="text-gray-400">No traces, no complex setup - authenticate and deploy instantly.</span>
+            </p>
+
+            {session ? (
+              <div className="flex flex-col sm:flex-row gap-6 items-center justify-center">
+                <Button
+                  onClick={() => setCurrentView('wizard')}
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0 shadow-lg shadow-blue-500/25"
+                >
+                  <Zap className="h-5 w-5" />
+                  <span>INITIATE DEPLOYMENT</span>
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+
+                <Button
+                  onClick={() => setCurrentView('dashboard')}
+                  variant="outline"
+                  size="lg"
+                  className="border-gray-600 text-gray-300 hover:bg-gray-800/50 bg-transparent"
+                >
+                  <Server className="h-5 w-5" />
+                  <span>ACCESS DASHBOARD</span>
+                  <ArrowRight className="h-5 w-5" />
+                </Button>
+              </div>
+            ) : (
+              <Button
+                onClick={() => signIn('github')}
+                size="lg"
+                className="bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 text-white border border-gray-600 shadow-lg"
+              >
+                <Github className="h-5 w-5" />
+                <span>AUTHENTICATE VIA GITHUB</span>
+                <ArrowRight className="h-5 w-5" />
+              </Button>
+            )}
           </div>
 
-          <p className="text-sm text-[var(--text-secondary)] mb-8 max-w-2xl mx-auto leading-relaxed">
-            Covert deployment of Windows RDP servers via
-            <span className="text-[var(--accent-primary)] font-semibold"> GitHub Actions</span> and
-            <span className="text-[var(--success)] font-semibold"> Ngrok tunneling</span>.
-            <br />
-            No traces, no complex setup - authenticate and deploy in stealth mode.
-          </p>
-
-          {session ? (
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
-              <button
-                onClick={() => setCurrentView('wizard')}
-                className="btn-primary text-sm py-3 px-6 flex items-center space-x-2"
-              >
-                <Zap className="h-4 w-4" />
-                <span>INITIATE DEPLOYMENT</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-
-              <button
-                onClick={() => setCurrentView('dashboard')}
-                className="btn-secondary text-sm py-3 px-6 flex items-center space-x-2"
-              >
-                <Server className="h-4 w-4" />
-                <span>ACCESS DASHBOARD</span>
-                <ArrowRight className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <button
-              onClick={() => signIn('github')}
-              className="btn-primary text-sm py-3 px-6 flex items-center space-x-2 mx-auto"
-            >
-              <Github className="h-4 w-4" />
-              <span>AUTHENTICATE VIA GITHUB</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-
-        {/* Features Section */}
-        <Features />
+          {/* Enhanced Features Section */}
+          <EnhancedFeatures />
 
         <div className="relative">
           <div className="relative z-10 grid grid-cols-6 gap-3 mb-16">
@@ -307,7 +336,7 @@ export default function Home() {
                       </div>
                       <div className="space-y-2">
                         <h2 className="text-lg font-medium transition">Deploy RDP</h2>
-                        <p className="text-foreground text-sm">GitHub Actions deploys covert Windows RDP server.</p>
+                        <p className="text-foreground text-sm">One-click deployment of instant Windows RDP servers.</p>
                       </div>
                     </div>
                     <div className="rounded-tl-(--radius) relative -mb-6 -mr-6 mt-6 h-fit border-l border-t p-6 py-6 sm:ml-6">
@@ -483,24 +512,25 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-[var(--border-primary)] mt-16 relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-[var(--accent-primary)] to-transparent opacity-50"></div>
-        <div className="container-custom py-12 text-center">
-          <div className="card p-8 relative group">
-            <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-primary)]/5 via-transparent to-[var(--success)]/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg"></div>
-            <div className="relative">
-              <p className="text-[var(--text-secondary)] mb-3 text-sm">
-                Powered by <span className="text-[var(--accent-primary)] font-semibold hover:animate-glow transition-all duration-300">Next.js</span>,
-                <span className="text-[var(--success)] font-semibold hover:animate-glow transition-all duration-300"> GitHub Actions</span>, and
-                <span className="text-[var(--warning)] font-semibold hover:animate-glow transition-all duration-300"> Ngrok tunneling</span>
-              </p>
-              <p className="text-[var(--text-muted)] text-sm font-mono">
-                Open source stealth deployment system
-              </p>
+        <footer className="border-t border-gray-800/50 mt-16 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-50"></div>
+          <div className="container-custom py-12 text-center">
+            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-8 relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 via-transparent to-green-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-lg"></div>
+              <div className="relative">
+                <p className="text-gray-300 mb-3 text-sm">
+                  Powered by <span className="text-blue-400 font-semibold hover:text-blue-300 transition-colors">Next.js</span>,
+                  <span className="text-green-400 font-semibold hover:text-green-300 transition-colors"> GitHub Actions</span>, and
+                  <span className="text-yellow-400 font-semibold hover:text-yellow-300 transition-colors"> Ngrok tunneling</span>
+                </p>
+                <p className="text-gray-500 text-sm font-mono">
+                  Open source stealth deployment system
+                </p>
+              </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

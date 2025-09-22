@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import SessionProvider from "@/components/SessionProvider";
+import { ThemeProvider } from "next-themes";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Secret RDP - Covert Windows RDP Server Deployment",
-  description: "Stealth deployment of Windows RDP servers using GitHub Actions and Ngrok tunneling",
+  title: "TunnelRDP - Secure Windows RDP Server Deployment",
+  description: "Crispy RDP in one click - Free forever! Deploy Windows RDP servers instantly with zero setup required.",
 };
 
 export default function RootLayout({
@@ -24,13 +25,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistMono.variable} ${geistSans.variable} antialiased font-mono`}
       >
-        <SessionProvider>
-          {children}
-        </SessionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
+          <SessionProvider>
+            {children}
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

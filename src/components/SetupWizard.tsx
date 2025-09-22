@@ -8,6 +8,12 @@ import {
 } from '@/utils/supabase-storage';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 import { TunnelingProvider, TUNNELING_PROVIDERS, FREE_PROVIDERS, VPN_PROVIDERS, DIRECT_PROVIDERS, SSH_PROVIDERS, RECOMMENDED_FREE_PROVIDER, ProviderFormData } from '@/types/tunneling';
+import { TunnelRDPIcon } from './TunnelRDPIcon';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 
 interface SetupWizardProps {
   onBack: () => void;
@@ -93,7 +99,7 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
     localexposeToken: '',
     tailscaleAuthKey: '',
     cloudflareSetup: false,
-    repositoryName: 'secret-rdp-' + Math.random().toString(36).substring(2, 11),
+    repositoryName: 'tunnelrdp-' + Math.random().toString(36).substring(2, 11),
     customSubdomain: '',
     selectedAccount: null,
     deploymentTarget: 'personal',
@@ -749,20 +755,20 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                           {(() => {
                             const category = getProviderCategory(provider);
                             return (
-                              <span className={`px-2 py-1 text-xs rounded-full border ${category.color}`}>
+                              <Badge variant="outline" className={`text-xs ${category.color}`}>
                                 {category.label}
-                              </span>
+                              </Badge>
                             );
                           })()}
                           {config.isFree && (
-                            <span className="px-2 py-1 text-xs bg-[var(--success)]/20 text-[var(--success)] rounded-full border border-[var(--success)]/30">
+                            <Badge variant="outline" className="text-xs bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
                               FREE
-                            </span>
+                            </Badge>
                           )}
                           {provider === RECOMMENDED_FREE_PROVIDER && (
-                            <span className="px-2 py-1 text-xs bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] rounded-full border border-[var(--accent-primary)]/30">
+                            <Badge variant="default" className="text-xs bg-[var(--accent-primary)]/20 text-[var(--accent-primary)] border-[var(--accent-primary)]/30">
                               RECOMMENDED
-                            </span>
+                            </Badge>
                           )}
                         </div>
                         <p className="text-sm text-[var(--text-secondary)] mb-3">
@@ -770,24 +776,24 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         </p>
                         <div className="flex flex-wrap gap-2">
                           {config.supportsTCP && (
-                            <span className="px-2 py-1 text-xs bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded border border-[var(--border-primary)]">
+                            <Badge variant="secondary" className="text-xs bg-[var(--bg-tertiary)] text-[var(--text-muted)] border-[var(--border-primary)]">
                               TCP
-                            </span>
+                            </Badge>
                           )}
                           {config.supportsUDP && (
-                            <span className="px-2 py-1 text-xs bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded border border-[var(--border-primary)]">
+                            <Badge variant="secondary" className="text-xs bg-[var(--bg-tertiary)] text-[var(--text-muted)] border-[var(--border-primary)]">
                               UDP
-                            </span>
+                            </Badge>
                           )}
                           {config.supportsCustomDomain && (
-                            <span className="px-2 py-1 text-xs bg-[var(--bg-tertiary)] text-[var(--text-muted)] rounded border border-[var(--border-primary)]">
+                            <Badge variant="secondary" className="text-xs bg-[var(--bg-tertiary)] text-[var(--text-muted)] border-[var(--border-primary)]">
                               Custom Domain
-                            </span>
+                            </Badge>
                           )}
                           {!config.requiresAuth && (
-                            <span className="px-2 py-1 text-xs bg-[var(--success)]/20 text-[var(--success)] rounded border border-[var(--success)]/30">
+                            <Badge variant="outline" className="text-xs bg-[var(--success)]/20 text-[var(--success)] border-[var(--success)]/30">
                               No Auth Required
-                            </span>
+                            </Badge>
                           )}
                         </div>
                       </div>
@@ -1012,7 +1018,7 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                 <div className="text-lg">💡</div>
                 <div>
                   <h4 className="text-sm font-medium text-[var(--text-primary)] mb-1">
-                    GitHub Actions Quota
+                    Cloud Deployment Quota
                   </h4>
                   <p className="text-xs text-[var(--text-secondary)]">
                     Each account gets 2,000 free minutes per month. Organizations provide separate quotas
@@ -1051,14 +1057,15 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                       <Github className="h-4 w-4 text-black" />
                     </div>
                   </div>
-                  <h3 className="text-sm font-medium text-[var(--text-primary)]">Repository Name</h3>
+                  <Label htmlFor="repository-name" className="text-sm font-medium text-[var(--text-primary)]">Repository Name</Label>
                 </div>
-                <input
+                <Input
+                  id="repository-name"
                   type="text"
                   value={formData.repositoryName}
                   onChange={(e) => handleInputChange('repositoryName', e.target.value)}
-                  placeholder="secret-rdp-deployment"
-                  className="input-field w-full text-sm"
+                  placeholder="tunnelrdp-deployment"
+                  className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                 />
               </div>
 
@@ -1074,16 +1081,17 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">
+                    <Label htmlFor="session-duration" className="block text-xs font-medium text-[var(--text-primary)] mb-1">
                       Session Duration (minutes)
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id="session-duration"
                       type="number"
                       min="30"
                       max="360"
                       value={formData.sessionDuration}
                       onChange={(e) => handleInputChange('sessionDuration', parseInt(e.target.value) || 355)}
-                      className="input-field w-full text-sm"
+                      className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)]"
                     />
                     <p className="text-xs text-[var(--text-secondary)] mt-1">
                       Current: {Math.floor(formData.sessionDuration / 60)}h {formData.sessionDuration % 60}m | Maximum: 360 minutes (6 hours)
@@ -1113,16 +1121,17 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">
+                    <Label htmlFor="keep-alive-interval" className="block text-xs font-medium text-[var(--text-primary)] mb-1">
                       Keep-Alive Interval (minutes)
-                    </label>
-                    <input
+                    </Label>
+                    <Input
+                      id="keep-alive-interval"
                       type="number"
                       min="5"
                       max="30"
                       value={formData.keepAliveInterval}
                       onChange={(e) => handleInputChange('keepAliveInterval', parseInt(e.target.value) || 10)}
-                      className="input-field w-full text-sm"
+                      className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)]"
                     />
                     <p className="text-xs text-[var(--text-secondary)] mt-1">
                       How often to check server status (5-30 minutes)
@@ -1140,14 +1149,15 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         <Key className="h-4 w-4 text-black" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)]">Ngrok Auth Token</h3>
+                    <Label htmlFor="ngrok-token" className="text-sm font-medium text-[var(--text-primary)]">Ngrok Auth Token</Label>
                   </div>
-                  <input
+                  <Input
+                    id="ngrok-token"
                     type="password"
                     value={formData.ngrokToken}
                     onChange={(e) => handleInputChange('ngrokToken', e.target.value)}
                     placeholder="2xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxx"
-                    className="input-field w-full text-sm"
+                    className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                   />
                 </div>
               )}
@@ -1161,14 +1171,15 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         <Key className="h-4 w-4 text-white" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)]">LocalExpose Access Token</h3>
+                    <Label htmlFor="localexpose-token" className="text-sm font-medium text-[var(--text-primary)]">LocalExpose Access Token</Label>
                   </div>
-                  <input
+                  <Input
+                    id="localexpose-token"
                     type="password"
                     value={formData.localexposeToken}
                     onChange={(e) => handleInputChange('localexposeToken', e.target.value)}
                     placeholder="loclx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                    className="input-field w-full text-sm"
+                    className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                   />
                   <p className="text-xs text-[var(--text-secondary)] mt-2">
                     Get your token from <a href="https://localxpose.io/dashboard" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-primary)] hover:underline">LocalExpose Dashboard</a>
@@ -1185,14 +1196,15 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         <Key className="h-4 w-4 text-white" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)]">Tailscale Auth Key</h3>
+                    <Label htmlFor="tailscale-auth-key" className="text-sm font-medium text-[var(--text-primary)]">Tailscale Auth Key</Label>
                   </div>
-                  <input
+                  <Input
+                    id="tailscale-auth-key"
                     type="password"
                     value={formData.tailscaleAuthKey}
                     onChange={(e) => handleInputChange('tailscaleAuthKey', e.target.value)}
                     placeholder="tskey-auth-kk4HBiCgaE11CNTRL-dyu5nfDi7vTkhmp9K7ZgvT94GHbQxrmb"
-                    className="input-field w-full text-sm mb-3"
+                    className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] mb-3"
                   />
                   <div className="text-xs text-[var(--text-secondary)] space-y-1">
                     <p>1. Get your auth key from <a href="https://login.tailscale.com/admin/settings/keys" target="_blank" rel="noopener noreferrer" className="text-[var(--accent-primary)] hover:underline">Tailscale Admin Console</a></p>
@@ -1244,14 +1256,15 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         <Globe className="h-4 w-4 text-black" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-medium text-[var(--text-primary)]">Custom Subdomain (Optional)</h3>
+                    <Label htmlFor="custom-subdomain" className="text-sm font-medium text-[var(--text-primary)]">Custom Subdomain (Optional)</Label>
                   </div>
-                  <input
+                  <Input
+                    id="custom-subdomain"
                     type="text"
                     value={formData.customSubdomain}
                     onChange={(e) => handleInputChange('customSubdomain', e.target.value)}
                     placeholder="my-rdp-server"
-                    className="input-field w-full text-sm"
+                    className="w-full text-sm bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                   />
                 </div>
               )}
@@ -1456,7 +1469,7 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         <Zap className="h-3 w-3 text-[var(--success)]" />
                         <span className="text-xs text-[var(--text-primary)]">Workflow:</span>
                         <a href={`${workflowStatus.repositoryUrl}/actions`} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--success)] hover:underline">
-                          View GitHub Actions
+                          View Deployment
                         </a>
                       </div>
                     </div>
@@ -1584,7 +1597,7 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                         <Zap className="h-3 w-3 text-[var(--success)]" />
                         <span className="text-xs text-[var(--text-primary)]">Workflow:</span>
                         <a href={`${workflowStatus.repositoryUrl}/actions`} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--success)] hover:underline">
-                          View GitHub Actions
+                          View Deployment
                         </a>
                       </div>
                     </div>
@@ -1643,9 +1656,9 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                               <Server className="h-8 w-8 text-[var(--success)]" />
                             </div>
                           </div>
-                          <div className="relative z-10 mt-6 space-y-2 text-center p-6">
-                            <h2 className="text-lg font-medium transition dark:text-white">Host Address</h2>
-                            <code className="block bg-[var(--bg-tertiary)] px-3 py-2 rounded text-[var(--success)] font-mono text-sm border border-[var(--border-primary)]">
+                          <div className="relative z-10 mt-4 space-y-1 text-center p-4">
+                            <h2 className="text-base font-medium transition dark:text-white">Host Address</h2>
+                            <code className="block bg-[var(--bg-tertiary)] px-2 py-1.5 rounded text-[var(--success)] font-mono text-xs border border-[var(--border-primary)]">
                               {workflowStatus.connectionDetails.host}
                             </code>
                           </div>
@@ -1667,9 +1680,9 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                               <Users className="absolute top-12 left-12 h-6 w-6 text-white" />
                             </svg>
                           </div>
-                          <div className="relative z-10 mt-14 space-y-2 text-center p-6">
-                            <h2 className="text-lg font-medium transition">Username</h2>
-                            <code className="block bg-[var(--bg-tertiary)] px-3 py-2 rounded text-[var(--accent-primary)] font-mono text-sm border border-[var(--border-primary)]">
+                          <div className="relative z-10 mt-8 space-y-1 text-center p-4">
+                            <h2 className="text-base font-medium transition">Username</h2>
+                            <code className="block bg-[var(--bg-tertiary)] px-2 py-1.5 rounded text-[var(--accent-primary)] font-mono text-xs border border-[var(--border-primary)]">
                               {workflowStatus.connectionDetails.username}
                             </code>
                           </div>
@@ -1678,13 +1691,13 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
 
                       <div className="relative col-span-full overflow-hidden lg:col-span-2">
                         <div className="card grid h-full pt-6 sm:grid-cols-1">
-                          <div className="relative z-10 flex flex-col justify-between space-y-12 lg:space-y-6 p-6">
-                            <div className="relative flex aspect-square size-12 rounded-full border before:absolute before:-inset-2 before:rounded-full before:border dark:border-white/10 dark:before:border-white/5 mx-auto">
-                              <Shield className="m-auto size-6 text-[var(--warning)]" strokeWidth={1} />
+                          <div className="relative z-10 flex flex-col justify-between space-y-6 lg:space-y-4 p-4">
+                            <div className="relative flex aspect-square size-10 rounded-full border before:absolute before:-inset-2 before:rounded-full before:border dark:border-white/10 dark:before:border-white/5 mx-auto">
+                              <Shield className="m-auto size-5 text-[var(--warning)]" strokeWidth={1} />
                             </div>
-                            <div className="space-y-2 text-center">
-                              <h2 className="text-lg font-medium transition">Password</h2>
-                              <code className="block bg-[var(--bg-tertiary)] px-3 py-2 rounded text-[var(--warning)] font-mono text-sm border border-[var(--border-primary)]">
+                            <div className="space-y-1 text-center">
+                              <h2 className="text-base font-medium transition">Password</h2>
+                              <code className="block bg-[var(--bg-tertiary)] px-2 py-1.5 rounded text-[var(--warning)] font-mono text-xs border border-[var(--border-primary)]">
                                 {workflowStatus.connectionDetails.password}
                               </code>
                             </div>
@@ -1714,6 +1727,37 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
                 <li>Click <span className="text-[var(--success)] font-semibold">Connect</span>!</li>
               </ol>
             </div>
+
+            {/* Telegram Support Group */}
+            <div className="mt-8 p-6 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg">
+              <div className="text-center">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.896 6.728-1.268 7.928-1.268 7.928-.16.906-.576 1.08-.576 1.08s-.736.064-1.536-.576c-.8-.64-2.032-1.472-2.032-1.472s-2.848 1.856-3.2 2.112c-.352.256-.608.192-.608.192s-.128-.064-.128-.448c0-.384.032-2.496.032-2.496s4.608-4.096 4.864-4.352c.256-.256.128-.4-.192-.144-.32.256-3.936 2.496-3.936 2.496s-.448.288-.96.032c-.512-.256-1.12-.448-1.12-.448s-.832-.544.576-1.12c1.408-.576 6.624-2.56 6.624-2.56s1.216-.48 1.216.32z"/>
+                    </svg>
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">Need Help?</h3>
+                <p className="text-[var(--text-secondary)] mb-4">
+                  Join our Telegram group for support, troubleshooting, and community help
+                </p>
+                <a
+                  href="https://t.me/tunnelrdp"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg transition-colors duration-200"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 0C5.374 0 0 5.373 0 12s5.374 12 12 12 12-5.373 12-12S18.626 0 12 0zm5.568 8.16c-.169 1.858-.896 6.728-.896 6.728-.896 6.728-1.268 7.928-1.268 7.928-.16.906-.576 1.08-.576 1.08s-.736.064-1.536-.576c-.8-.64-2.032-1.472-2.032-1.472s-2.848 1.856-3.2 2.112c-.352.256-.608.192-.608.192s-.128-.064-.128-.448c0-.384.032-2.496.032-2.496s4.608-4.096 4.864-4.352c.256-.256.128-.4-.192-.144-.32.256-3.936 2.496-3.936 2.496s-.448.288-.96.032c-.512-.256-1.12-.448-1.12-.448s-.832-.544.576-1.12c1.408-.576 6.624-2.56 6.624-2.56s1.216-.48 1.216.32z"/>
+                  </svg>
+                  Join @tunnelrdp
+                </a>
+                <p className="text-xs text-[var(--text-secondary)] mt-2">
+                  Get instant help with any connection issues or questions
+                </p>
+              </div>
+            </div>
           </div>
         );
 
@@ -1738,16 +1782,13 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
             <div className="text-center">
               <div className="flex items-center space-x-2">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-[var(--accent-primary)] rounded blur-sm opacity-20"></div>
-                  <div className="relative bg-gradient-to-br from-[var(--accent-primary)] to-blue-600 p-1 rounded">
-                    <Monitor className="h-4 w-4 text-black" />
-                  </div>
+                  <TunnelRDPIcon size={20} />
                 </div>
                 <h1 className="text-sm font-semibold text-[var(--text-primary)]">
-                  SECRET RDP DEPLOYMENT
+                  TUNNELRDP DEPLOYMENT
                 </h1>
               </div>
-              <div className="text-xs text-[var(--text-secondary)] mt-1">Configure and deploy covert RDP server</div>
+              <div className="text-xs text-[var(--text-secondary)] mt-1">Configure and deploy secure RDP server</div>
             </div>
             <div className="w-[80px]"></div>
           </div>
