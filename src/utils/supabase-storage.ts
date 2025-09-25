@@ -64,6 +64,7 @@ export async function saveSession(session: Omit<StoredSession, 'id' | 'timestamp
 
 /**
  * Get all stored sessions (tries Supabase first, falls back to localStorage)
+ * Returns only active (non-expired) sessions
  */
 export async function getSessions(): Promise<StoredSession[]> {
   if (!currentUserId) {
@@ -77,6 +78,28 @@ export async function getSessions(): Promise<StoredSession[]> {
     console.error('Failed to get sessions from Supabase:', error);
     // Fallback to localStorage
     return getSessionsFromLocalStorage();
+  }
+}
+
+/**
+ * Get all recent sessions including expired/completed ones from last 30 days
+ */
+export async function getAllRecentSessions(): Promise<StoredSession[]> {
+  if (!currentUserId) {
+    // If user not logged in, try localStorage (but filter for recent)
+    const sessions = getSessionsFromLocalStorage();
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    return sessions.filter(session => session.timestamp >= thirtyDaysAgo);
+  }
+
+  try {
+    return await supabaseService.getAllRecentSessions(currentUserId);
+  } catch (error) {
+    console.error('Failed to get recent sessions from Supabase:', error);
+    // Fallback to localStorage
+    const sessions = getSessionsFromLocalStorage();
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+    return sessions.filter(session => session.timestamp >= thirtyDaysAgo);
   }
 }
 

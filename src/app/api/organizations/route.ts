@@ -1,6 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Octokit } from '@octokit/rest';
 
+// Organization templates for legitimate use cases
+const ORG_TEMPLATES = [
+  {
+    id: 'dev-environment',
+    name: 'Development Environment',
+    description: 'Development and testing environment for RDP automation',
+    suffix: 'dev-env'
+  },
+  {
+    id: 'client-work',
+    name: 'Client Projects',
+    description: 'Remote desktop solutions for client projects',
+    suffix: 'client-rdp'
+  },
+  {
+    id: 'testing-lab',
+    name: 'Testing Laboratory',
+    description: 'Isolated testing environment for RDP configurations',
+    suffix: 'test-lab'
+  },
+  {
+    id: 'project-workspace',
+    name: 'Project Workspace',
+    description: 'Dedicated workspace for RDP project development',
+    suffix: 'workspace'
+  }
+];
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -8,7 +36,12 @@ export async function GET(request: NextRequest) {
 
     if (!githubToken) {
       return NextResponse.json(
-        { error: 'GitHub token is required' },
+        {
+          success: false,
+          error: 'GitHub token is required',
+          accounts: [],
+          templates: ORG_TEMPLATES
+        },
         { status: 400 }
       );
     }
@@ -88,48 +121,32 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error fetching organizations:', error);
-    
+
     if (error instanceof Error) {
       return NextResponse.json(
-        { error: error.message },
+        {
+          success: false,
+          error: error.message,
+          accounts: [],
+          templates: ORG_TEMPLATES
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json(
-      { error: 'Failed to fetch organizations' },
+      {
+        success: false,
+        error: 'Failed to fetch organizations',
+        accounts: [],
+        templates: ORG_TEMPLATES
+      },
       { status: 500 }
     );
   }
 }
 
-// Organization templates for legitimate use cases
-const ORG_TEMPLATES = [
-  {
-    id: 'dev-environment',
-    name: 'Development Environment',
-    description: 'Development and testing environment for RDP automation',
-    suffix: 'dev-env'
-  },
-  {
-    id: 'client-work',
-    name: 'Client Projects',
-    description: 'Remote desktop solutions for client projects',
-    suffix: 'client-rdp'
-  },
-  {
-    id: 'testing-lab',
-    name: 'Testing Laboratory',
-    description: 'Isolated testing environment for RDP configurations',
-    suffix: 'test-lab'
-  },
-  {
-    id: 'project-workspace',
-    name: 'Project Workspace',
-    description: 'Dedicated workspace for RDP project development',
-    suffix: 'workspace'
-  }
-];
+
 
 // Rate limiting storage (in production, use Redis or database)
 const creationLog = new Map<string, number[]>();
@@ -232,19 +249,28 @@ export async function POST(request: NextRequest) {
       // Handle specific GitHub API errors
       if (error.message.includes('name already exists')) {
         return NextResponse.json(
-          { error: 'Organization name already exists. Please try a different name.' },
+          {
+            success: false,
+            error: 'Organization name already exists. Please try a different name.'
+          },
           { status: 409 }
         );
       }
 
       return NextResponse.json(
-        { error: error.message },
+        {
+          success: false,
+          error: error.message
+        },
         { status: 500 }
       );
     }
 
     return NextResponse.json(
-      { error: 'Failed to create organization' },
+      {
+        success: false,
+        error: 'Failed to create organization'
+      },
       { status: 500 }
     );
   }

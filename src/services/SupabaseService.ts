@@ -40,13 +40,26 @@ export class SupabaseService {
     avatar_url?: string;
   }): Promise<User | null> {
     try {
-      const { data: existingUser } = await supabase
+      console.log('🔍 Attempting to create/update user:', {
+        github_id: githubUser.id,
+        email: githubUser.email,
+        username: githubUser.login
+      });
+
+      const { data: existingUser, error: selectError } = await supabase
         .from('users')
         .select('*')
         .eq('github_id', githubUser.id.toString())
         .single();
 
+      // Handle the case where no user is found (not an error)
+      if (selectError && selectError.code !== 'PGRST116') {
+        console.error('❌ Error checking for existing user:', selectError);
+        throw selectError;
+      }
+
       if (existingUser) {
+        console.log('👤 Updating existing user:', existingUser.id);
         // Update existing user
         const { data, error } = await supabase
           .from('users')
@@ -54,14 +67,21 @@ export class SupabaseService {
             email: githubUser.email,
             github_username: githubUser.login,
             avatar_url: githubUser.avatar_url || null,
+            updated_at: new Date().toISOString(),
           })
           .eq('github_id', githubUser.id.toString())
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error updating user:', error);
+          throw error;
+        }
+
+        console.log('✅ User updated successfully:', data.id);
         return data;
       } else {
+        console.log('👤 Creating new user for GitHub ID:', githubUser.id);
         // Create new user
         const { data, error } = await supabase
           .from('users')
@@ -74,11 +94,41 @@ export class SupabaseService {
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('❌ Error creating user:', error);
+          console.error('❌ Error details:', {
+            code: error.code,
+            message: error.message,
+            details: error.details,
+            hint: error.hint
+          });
+
+          // Check if it's a table not found error
+          if (error.code === '42P01') {
+            console.error('🚨 CRITICAL: Users table does not exist in Supabase!');
+            console.error('📋 Please run the database setup script:');
+            console.error('   node scripts/setup-database.js --show-sql');
+          }
+
+          throw error;
+        }
+
+        console.log('✅ User created successfully:', data.id);
         return data;
       }
     } catch (error) {
-      console.error('Failed to create/update user:', error);
+      console.error('💥 Failed to create/update user:', error);
+
+      // Provide helpful error messages for common issues
+      if (error instanceof Error) {
+        if (error.message.includes('relation "public.users" does not exist')) {
+          console.error('🚨 Database schema not set up! Please create the users table.');
+          console.error('📋 Run: node scripts/setup-database.js --show-sql');
+        } else if (error.message.includes('permission denied')) {
+          console.error('🔐 Permission denied. Check your Supabase RLS policies.');
+        }
+      }
+
       return null;
     }
   }
@@ -107,6 +157,7 @@ export class SupabaseService {
    */
   async saveSession(userId: string, session: Omit<StoredSession, 'id' | 'timestamp' | 'expiresAt'>): Promise<boolean> {
     try {
+      console.log('💾 Saving session for user:', userId);
       const now = Date.now();
       const expiresAt = new Date(now + SESSION_DURATION).toISOString();
 
@@ -124,16 +175,35 @@ export class SupabaseService {
           onConflict: 'user_id,repository_url'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Error saving session:', error);
+
+        // Check if it's a table not found error
+        if (error.code === '42P01') {
+          console.error('🚨 CRITICAL: rdp_sessions table does not exist in Supabase!');
+          console.error('📋 Please run the database setup script:');
+          console.error('   node scripts/setup-database.js --show-sql');
+        }
+
+        throw error;
+      }
+
+      console.log('✅ Session saved successfully');
       return true;
     } catch (error) {
-      console.error('Failed to save session:', error);
+      console.error('💥 Failed to save session:', error);
+
+      if (error instanceof Error && error.message.includes('relation "public.rdp_sessions" does not exist')) {
+        console.error('🚨 Database schema not set up! Please create the rdp_sessions table.');
+        console.error('📋 Run: node scripts/setup-database.js --show-sql');
+      }
+
       return false;
     }
   }
 
   /**
-   * Get all stored sessions for a user
+   * Get all stored sessions for a user (active only - non-expired)
    */
   async getSessions(userId: string): Promise<StoredSession[]> {
     try {
@@ -149,6 +219,30 @@ export class SupabaseService {
       return data.map(this.mapRDPSessionToStoredSession);
     } catch (error) {
       console.error('Failed to get sessions:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get all recent sessions for a user (including expired/completed sessions from last 30 days)
+   */
+  async getAllRecentSessions(userId: string): Promise<StoredSession[]> {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from('rdp_sessions')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', thirtyDaysAgo.toISOString())
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data.map(this.mapRDPSessionToStoredSession);
+    } catch (error) {
+      console.error('Failed to get recent sessions:', error);
       return [];
     }
   }

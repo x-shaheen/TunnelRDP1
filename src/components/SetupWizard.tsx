@@ -152,28 +152,38 @@ export default function SetupWizard({ onBack, session }: SetupWizardProps) {
     setLoadingAccounts(true);
     try {
       const response = await fetch(`/api/organizations?token=${encodeURIComponent(session.accessToken)}`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
 
       console.log('API Response:', data);
       console.log('Response success:', data.success);
       console.log('Accounts:', data.accounts);
 
-      if (data.success) {
-        console.log('Loaded accounts:', data.accounts.length);
-        setAvailableAccounts(data.accounts);
+      if (data.success === true) {
+        console.log('Loaded accounts:', data.accounts?.length || 0);
+        setAvailableAccounts(data.accounts || []);
         setOrgTemplates(data.templates || []);
         setRateLimit(data.rateLimit);
         // Set personal account as default
-        const personalAccount = data.accounts.find((acc: GitHubAccount) => acc.type === 'user');
+        const personalAccount = data.accounts?.find((acc: GitHubAccount) => acc.type === 'user');
         if (personalAccount) {
           console.log('Setting default account:', personalAccount.name);
           setFormData(prev => ({ ...prev, selectedAccount: personalAccount }));
         }
       } else {
-        console.error('API returned success: false', data);
+        console.error('API returned error:', data.error || 'Unknown error');
+        // Still set templates even if accounts failed to load
+        setOrgTemplates(data.templates || []);
       }
     } catch (error) {
       console.error('Failed to fetch accounts:', error);
+      // Set empty state but don't break the component
+      setAvailableAccounts([]);
+      setOrgTemplates([]);
     } finally {
       setLoadingAccounts(false);
     }

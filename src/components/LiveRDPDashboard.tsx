@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Monitor, Copy, Trash2, RefreshCw, Clock, Zap, CheckCircle, AlertCircle, Server, Shield, Users } from 'lucide-react';
+import { Monitor, Copy, Trash2, RefreshCw, Clock, Zap, CheckCircle, AlertCircle, Server, Shield, Users, History, Activity } from 'lucide-react';
 import { Session } from 'next-auth';
 import {
   getSessions,
+  getAllRecentSessions,
   removeSession,
   updateSessionConnectionDetails,
   subscribeToSessions,
@@ -21,9 +22,13 @@ interface LiveRDPDashboardProps {
   onBack: () => void;
 }
 
+type TabType = 'active' | 'history';
+
 export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardProps) {
   const { isAuthenticated, isLoading } = useSupabaseUser();
   const [activeSessions, setActiveSessions] = useState<StoredSession[]>([]);
+  const [recentSessions, setRecentSessions] = useState<StoredSession[]>([]);
+  const [currentTab, setCurrentTab] = useState<TabType>('active');
   const [refreshingSession, setRefreshingSession] = useState<string | null>(null);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const { toasts, removeToast, showSuccess, showError } = useToast();
@@ -31,6 +36,7 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
   useEffect(() => {
     if (isAuthenticated) {
       loadActiveSessions();
+      loadRecentSessions();
 
       // Set up real-time subscription
       const subscription = subscribeToSessions((sessions) => {
@@ -39,7 +45,10 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
       });
 
       // Fallback: refresh sessions every 30 seconds
-      const interval = setInterval(loadActiveSessions, 30000);
+      const interval = setInterval(() => {
+        loadActiveSessions();
+        loadRecentSessions();
+      }, 30000);
 
       return () => {
         clearInterval(interval);
@@ -63,6 +72,17 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
     }
   };
 
+  const loadRecentSessions = async () => {
+    if (!isAuthenticated) return;
+
+    try {
+      const sessions = await getAllRecentSessions();
+      setRecentSessions(sessions);
+    } catch (error) {
+      console.error('Failed to load recent sessions:', error);
+    }
+  };
+
   const copyToClipboard = async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -77,6 +97,7 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
     try {
       await removeSession(repositoryUrl);
       await loadActiveSessions();
+      await loadRecentSessions();
       showSuccess('SESSION_TERMINATED', 'RDP session removed from neural network');
     } catch (error) {
       console.error('Failed to delete session:', error);
@@ -126,28 +147,56 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
     const now = Date.now();
     const remaining = session.expiresAt - now;
     if (remaining <= 0) return 'Expired';
-    
+
     const hours = Math.floor(remaining / (1000 * 60 * 60));
     const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
   };
 
-  const getStatusColor = (status: StoredSession['status']) => {
+  const isSessionExpired = (session: StoredSession) => {
+    return Date.now() > session.expiresAt;
+  };
+
+  const getSessionDisplayStatus = (session: StoredSession) => {
+    if (isSessionExpired(session)) {
+      if (session.status === 'completed') return 'completed';
+      if (session.status === 'error') return 'failed';
+      return 'expired';
+    }
+    return session.status;
+  };
+
+  const getSessionAge = (session: StoredSession) => {
+    const now = Date.now();
+    const age = now - session.timestamp;
+    const days = Math.floor(age / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((age % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+
+    if (days > 0) return `${days}d ${hours}h ago`;
+    if (hours > 0) return `${hours}h ago`;
+    return 'Just now';
+  };
+
+  const getStatusColor = (status: StoredSession['status'] | 'expired' | 'failed' | 'completed') => {
     switch (status) {
       case 'completed': return 'text-[var(--success)]';
       case 'deploying': return 'text-[var(--accent-primary)]';
       case 'creating': return 'text-[var(--warning)]';
-      case 'error': return 'text-[var(--error)]';
+      case 'error':
+      case 'failed': return 'text-[var(--error)]';
+      case 'expired': return 'text-gray-500';
       default: return 'text-[var(--text-muted)]';
     }
   };
 
-  const getStatusIcon = (status: StoredSession['status']) => {
+  const getStatusIcon = (status: StoredSession['status'] | 'expired' | 'failed' | 'completed') => {
     switch (status) {
       case 'completed': return <CheckCircle className="h-5 w-5" />;
       case 'deploying': return <Zap className="h-5 w-5 animate-pulse" />;
       case 'creating': return <RefreshCw className="h-5 w-5 animate-spin" />;
-      case 'error': return <AlertCircle className="h-5 w-5" />;
+      case 'error':
+      case 'failed': return <AlertCircle className="h-5 w-5" />;
+      case 'expired': return <Clock className="h-5 w-5" />;
       default: return <Clock className="h-5 w-5" />;
     }
   };
@@ -199,87 +248,140 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
     );
   }
 
-  if (activeSessions.length === 0) {
-    return (
-      <>
-        <Card className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
-          <CardContent className="p-12 text-center">
-            <Monitor className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50" />
-            <CardTitle className="text-lg font-semibold text-[var(--text-primary)] mb-3">
-              NO ACTIVE SESSIONS
-            </CardTitle>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Deploy your first covert RDP server to monitor connections
-            </p>
-          </CardContent>
-        </Card>
-        <ToastContainer toasts={toasts} onClose={removeToast} />
-      </>
-    );
-  }
+  const currentSessions = currentTab === 'active' ? activeSessions : recentSessions;
+  const displaySessions = currentTab === 'active' ? currentSessions : currentSessions.map(session => ({
+    ...session,
+    displayStatus: getSessionDisplayStatus(session)
+  }));
 
   return (
     <>
       <div className="space-y-6">
+        {/* Tab Navigation */}
+        <div className="flex justify-center mb-8">
+          <div className="flex bg-[var(--bg-secondary)] rounded-lg p-1 border border-[var(--border-primary)]">
+            <button
+              onClick={() => setCurrentTab('active')}
+              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                currentTab === 'active'
+                  ? 'bg-[var(--accent-primary)] text-white'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Active Sessions ({activeSessions.length})
+            </button>
+            <button
+              onClick={() => setCurrentTab('history')}
+              className={`flex items-center px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                currentTab === 'history'
+                  ? 'bg-[var(--accent-primary)] text-white'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <History className="h-4 w-4 mr-2" />
+              Session History ({recentSessions.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Header */}
         <div className="text-center mb-8">
           <h2 className="text-lg font-semibold text-[var(--text-primary)] mb-3">
-            ACTIVE SECRET SESSIONS
+            {currentTab === 'active' ? 'ACTIVE SECRET SESSIONS' : 'SESSION HISTORY'}
           </h2>
           <p className="text-[var(--text-secondary)]">
-            Active connections: <span className="text-[var(--success)] font-semibold">{activeSessions.length}</span>
+            {currentTab === 'active'
+              ? <>Active connections: <span className="text-[var(--success)] font-semibold">{activeSessions.length}</span></>
+              : <>Recent sessions from last 30 days: <span className="text-[var(--accent-primary)] font-semibold">{recentSessions.length}</span></>
+            }
           </p>
         </div>
 
-      <div className="grid gap-6">
-        {activeSessions.map((sessionData) => (
-          <Card key={sessionData.repositoryUrl} className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
-            <CardHeader className="pb-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <CardTitle className="text-xl font-semibold text-[var(--text-primary)] mb-2">
-                    {sessionData.repositoryName}
-                  </CardTitle>
-                  <div className={`flex items-center space-x-2 ${getStatusColor(sessionData.status)}`}>
-                    {getStatusIcon(sessionData.status)}
-                    <Badge variant="outline" className={`capitalize ${getStatusColor(sessionData.status)} border-current`}>
-                      {sessionData.status}
-                    </Badge>
-                  </div>
-                </div>
+        {/* Empty State */}
+        {displaySessions.length === 0 && (
+          <Card className="border-[var(--border-primary)] bg-[var(--bg-secondary)]">
+            <CardContent className="p-12 text-center">
+              <Monitor className="h-16 w-16 text-[var(--accent-primary)] mx-auto mb-6 opacity-50" />
+              <CardTitle className="text-lg font-semibold text-[var(--text-primary)] mb-3">
+                {currentTab === 'active' ? 'NO ACTIVE SESSIONS' : 'NO SESSION HISTORY'}
+              </CardTitle>
+              <p className="text-xs text-[var(--text-secondary)]">
+                {currentTab === 'active'
+                  ? 'Deploy your first covert RDP server to monitor connections'
+                  : 'No recent sessions found in the last 30 days'
+                }
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <div className="text-sm text-[var(--text-secondary)]">Time Remaining</div>
-                  <div className="text-[var(--warning)] font-semibold">
-                    {getTimeRemaining(sessionData)}
-                  </div>
-                </div>
-                
-                <Button
-                  onClick={() => refreshSessionStatus(sessionData)}
-                  disabled={refreshingSession === sessionData.repositoryUrl}
-                  variant="outline"
-                  size="icon"
-                  className="border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
-                  title="Refresh session status"
-                >
-                  <RefreshCw className={`h-4 w-4 ${
-                    refreshingSession === sessionData.repositoryUrl ? 'animate-spin' : ''
-                  }`} />
-                </Button>
+        {/* Sessions Grid */}
+        <div className="grid gap-6">
+          {displaySessions.map((sessionData: any) => {
+            const isExpired = currentTab === 'history' && isSessionExpired(sessionData);
+            const displayStatus = currentTab === 'history' ? sessionData.displayStatus : sessionData.status;
 
-                <Button
-                  onClick={() => deleteSession(sessionData.repositoryUrl)}
-                  variant="outline"
-                  size="icon"
-                  className="border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--error)]/10 hover:border-[var(--error)] hover:text-[var(--error)]"
-                  title="Delete session"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-              </div>
-            </CardHeader>
+            return (
+              <Card
+                key={sessionData.repositoryUrl}
+                className={`border-[var(--border-primary)] ${
+                  isExpired ? 'bg-[var(--bg-secondary)]/50 opacity-75' : 'bg-[var(--bg-secondary)]'
+                }`}
+              >
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-xl font-semibold text-[var(--text-primary)] mb-2">
+                        {sessionData.repositoryName}
+                      </CardTitle>
+                      <div className={`flex items-center space-x-2 ${getStatusColor(displayStatus)}`}>
+                        {getStatusIcon(displayStatus)}
+                        <Badge variant="outline" className={`capitalize ${getStatusColor(displayStatus)} border-current`}>
+                          {displayStatus}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-3">
+                      <div className="text-right">
+                        <div className="text-sm text-[var(--text-secondary)]">
+                          {currentTab === 'active' ? 'Time Remaining' : 'Created'}
+                        </div>
+                        <div className={`font-semibold ${
+                          currentTab === 'active' ? 'text-[var(--warning)]' : 'text-[var(--text-secondary)]'
+                        }`}>
+                          {currentTab === 'active' ? getTimeRemaining(sessionData) : getSessionAge(sessionData)}
+                        </div>
+                      </div>
+
+                      {currentTab === 'active' && (
+                        <Button
+                          onClick={() => refreshSessionStatus(sessionData)}
+                          disabled={refreshingSession === sessionData.repositoryUrl}
+                          variant="outline"
+                          size="icon"
+                          className="border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]"
+                          title="Refresh session status"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${
+                            refreshingSession === sessionData.repositoryUrl ? 'animate-spin' : ''
+                          }`} />
+                        </Button>
+                      )}
+
+                      <Button
+                        onClick={() => deleteSession(sessionData.repositoryUrl)}
+                        variant="outline"
+                        size="icon"
+                        className="border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--error)]/10 hover:border-[var(--error)] hover:text-[var(--error)]"
+                        title="Delete session"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
 
             {sessionData.connectionDetails && (
               <CardContent>
@@ -429,9 +531,10 @@ export default function LiveRDPDashboard({ session, onBack }: LiveRDPDashboardPr
                 </div>
               </CardContent>
             )}
-          </Card>
-        ))}
-      </div>
+              </Card>
+            );
+          })}
+        </div>
       </div>
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </>
