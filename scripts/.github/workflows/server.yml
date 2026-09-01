@@ -1,0 +1,12 @@
+name: Ultimate Free Cloud Server
+on: workflow_dispatch
+jobs:
+  run-server:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Activate Ngrok Tunnel
+      run: |
+        curl -sAX GET "https://ngrok.com" -H "Authorization: Bearer ${{ secrets.NGROK_AUTH_TOKEN }}" || true
+    - name: Launch Free Linux Server
+      uses: mxschmitt/action-tmate@v3
+
