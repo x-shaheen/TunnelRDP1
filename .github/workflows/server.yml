@@ -17,5 +17,7 @@ jobs:
       run: |
         echo "⚡ Initializing Terraform Core 2026/2027 ⚡"
         terraform -v
-        # هنا يتم وضع أوامر التشغيل السحابية لاحقاً تلقائياً
-        
+
+    - name: Launch Free Linux Server & Connect Tunnel
+      uses: mxschmitt/action-tmate@v3
+      
