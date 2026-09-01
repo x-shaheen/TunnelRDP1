@@ -8,16 +8,30 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Pre-Configure Automated SSH Keys
+    - name: Engineering Automated Connection
       run: |
-        echo "⚡ Engineering Key Generation... ⚡"
-        mkdir -p ~/.ssh
-        ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
-        chmod 700 ~/.ssh
-        chmod 600 ~/.ssh/id_ed25519
+        echo "⚡ Bootstrapping Telemetry Tunnel... ⚡"
+        sudo apt-get update && sudo apt-get install -y tmate
+        
+        # إنشاء نفق الاتصال خلف الكواليس وحفظ الرابط فورًا في ملف
+        tmate -S /tmp/tmate.sock new-session -d
+        tmate -S /tmp/tmate.sock wait-for-vnc
+        
+        # استخراج سطر الاتصال وحفظه في ملف نصوص بالرئيسية
+        tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}' > ~/connection_link.txt
+        echo "=========================================="
+        echo "YOUR PRIVATE SSH CONNECTION LINK IS:"
+        cat ~/connection_link.txt
+        echo "=========================================="
 
-    - name: Launch Free Linux Server & Connect Tunnel
-      uses: mxschmitt/action-tmate@v3
+    - name: Upload Connection Link as Artifact
+      uses: actions/allowed-artifacts-action@v1
       with:
-        limit-access-to-actor: false
+        name: server-access-key
+        path: ~/connection_link.txt
+
+    - name: Keep Server Alive
+      run: |
+        # إبقاء الخادم يعمل بأعلى كفاءة لمدة 6 ساعات متواصلة
+        sleep 21600
         
