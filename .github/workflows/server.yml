@@ -1,192 +1,324 @@
-# Production-ready GitHub Actions workflow to provision up to 3 parallel Ubuntu dev instances
-# - Multi-server matrix (up to 3 parallel)
-# - Securely capture connection endpoints to a file (never print them)
-# - Upload the connection file as an artifact using official actions/upload-artifact@v4
-# - Silent ed25519 SSH key generation
-# - Uses tmate (installed from package) for ultra-stable remote sessions
-# - Robust timeouts, retries, strict error handling, and a 6-hour keepalive window
-#
-# Notes:
-# - Do NOT print endpoints or secrets to the workflow logs. All endpoints are written to a
-#   file with restricted permissions and uploaded as an artifact (zip) using actions/upload-artifact@v4.
-# - Job timeout is set to 360 minutes (6 hours). Each job will keep the session alive for up to 6 hours.
-# - No placeholders or ellipses — this is ready to drop into .github/workflows/server.yml
 name: Provision & Publish Dev Instances (tmate)
 on:
-  workflow_dispatch:    # manual trigger
-  # Optional: schedule - uncomment if you want periodic runs
-  # schedule:
-  #   - cron: '0 9 * * 1' # example: every Monday 09:00 UTC
+  workflow_dispatch:
 
 concurrency:
   group: provision-dev-instances-${{ github.run_id }}
   cancel-in-progress: false
 
-jobs:
-  provision:
-    # Run up to 3 instances in parallel via matrix
-    runs-on: ubuntu-latest
-    timeout-minutes: 360    # keep jobs allowed for 6 hours
-    strategy:
-      matrix:
-        instance: [1, 2, 3]   # up to 3 parallel instances
-      max-parallel: 3
+defaults:
+  run:
+    shell: bash
 
-    # Per-job environment values (unique names to avoid collisions)
+jobs:
+  Server_1:
+    name: Server_1
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
     env:
-      INSTANCE_ID: instance-${{ matrix.instance }}-run-${{ github.run_id }}-job-${{ github.job }}
-      CONN_DIR: ${{ github.workspace }}/connections
-      CONN_FILE: ${{ github.workspace }}/connections/connection-${{ matrix.instance }}.txt
-      TMATE_SOCK: /tmp/tmate-${{ matrix.instance }}.sock
-      KEEPALIVE_SECONDS: 21600   # 6 hours (6 * 60 * 60)
-      TMATE_START_TIMEOUT: 60    # seconds to wait for tmate readiness per attempt
-      TMATE_RETRIES: 6           # retry attempts to start tmate
-      SSH_KEY_PATH: ${{ runner.temp }}/id_ed25519_${{ matrix.instance }}
+      INSTANCE_NAME: server-1
+      SOCKET_PATH: /tmp/tmate-server-1.sock
+      CONN_FILE: ${{ github.workspace }}/connection_link_server_1.txt
+      KEEPALIVE_SECONDS: 21600
+      TMATE_START_TIMEOUT: 60
+      TMATE_RETRIES: 6
 
     steps:
-
-      - name: Checkout (optional; keeps workspace available)
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare environment & install dependencies (non-interactive)
+      - name: Install dependencies
         run: |
           set -euo pipefail
           export DEBIAN_FRONTEND=noninteractive
           apt-get update -y
-          # Install tmate & common utilities; keep packages minimal and stable
           apt-get install -y --no-install-recommends tmate openssh-client jq coreutils timeout psmisc
-          # Ensure connection directory exists with strict perms
-          mkdir -p "${CONN_DIR}"
-          chmod 700 "${CONN_DIR}"
-        shell: bash
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
 
-      - name: Generate non-interactive ed25519 SSH keypair (silent, non-printing)
-        id: gen-key
+      - name: Generate silent ed25519 SSH keypair
         run: |
           set -euo pipefail
           umask 077
-          # Ensure no prompts, deterministic file name, empty passphrase
-          ssh-keygen -t ed25519 -N "" -f "${SSH_KEY_PATH}" -q
-          # Set strict permissions to private key
-          chmod 600 "${SSH_KEY_PATH}"
-          chmod 644 "${SSH_KEY_PATH}.pub"
-          # Create a small metadata file for debugging (no secrets). This will not contain private keys.
-          echo "instance=${INSTANCE_ID}" > "${CONN_DIR}/meta-${{ matrix.instance }}.txt"
-          echo "pubkey_path=${SSH_KEY_PATH}.pub" >> "${CONN_DIR}/meta-${{ matrix.instance }}.txt"
-          chmod 600 "${CONN_DIR}/meta-${{ matrix.instance }}.txt"
-        shell: bash
+          ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
+          chmod 600 ~/.ssh/id_ed25519
+          chmod 644 ~/.ssh/id_ed25519.pub
 
-      - name: Start tmate session (silently, with retries and timeouts)
-        id: start-tmate
+      - name: Start tmate session with retries and capture connection
         run: |
           set -euo pipefail
-          # Do not allow tmate output to reach job logs. Capture only into files.
-          SOCK="${TMATE_SOCK}"
+          SOCK="${SOCKET_PATH}"
           CONN_FILE="${CONN_FILE}"
-          mkdir -p "$(dirname "${SOCK}")"
-          rm -f "${SOCK}"
-
-          # Start detached tmate session bound to a unique socket
-          # Use retry loop to avoid transient network/service failures
+          TMATE_SSH=""
+          TMATE_WEB=""
+          TMATE_SSH_FP=""
           attempt=0
-          started=0
+          rm -f "${SOCK}"
           while [ $attempt -lt "${TMATE_RETRIES}" ]; do
-            attempt=$((attempt + 1))
-            # Start tmate in detached mode pointing at unique socket
-            # `-F` not used so that server runs detached and we can query the socket
+            attempt=$((attempt+1))
             tmate -S "${SOCK}" new-session -d || true
-
-            # Wait up to TMATE_START_TIMEOUT seconds for a valid SSH endpoint to appear
             ready=0
             for i in $(seq 1 "${TMATE_START_TIMEOUT}"); do
-              # Query tmate for ssh/web endpoints (no echo to workflow logs)
-              TMATE_SSH=$(tmate -S "${SOCK}" display -p '#{tmate_ssh}' 2>/dev/null || echo "")
-              TMATE_WEB=$(tmate -S "${SOCK}" display -p '#{tmate_web}' 2>/dev/null || echo "")
-              TMATE_SSH_FINGERPRINT=$(tmate -S "${SOCK}" display -p '#{tmate_ssh_fingerprint}' 2>/dev/null || echo "")
+              TMATE_SSH=$(tmate -S "${SOCK}" display -p '#{tmate_ssh}' 2>/dev/null || true)
+              TMATE_WEB=$(tmate -S "${SOCK}" display -p '#{tmate_web}' 2>/dev/null || true)
+              TMATE_SSH_FP=$(tmate -S "${SOCK}" display -p '#{tmate_ssh_fingerprint}' 2>/dev/null || true)
               if [ -n "${TMATE_SSH}" ]; then
                 ready=1
                 break
               fi
               sleep 1
             done
-
             if [ "${ready}" -eq 1 ]; then
-              started=1
               break
             fi
-
-            # If not ready, kill any stale session and retry cleanly
             pkill -f "tmate.*${SOCK}" || true
             sleep 2
           done
 
-          if [ "${started}" -ne 1 ]; then
-            echo "ERROR: tmate failed to start after ${TMATE_RETRIES} attempts" >&2
-            exit 2
+          if [ -z "${TMATE_SSH}" ]; then
+            echo "ERROR: tmate failed to provide an SSH endpoint" >&2
+            exit 1
           fi
 
-          # Create connection artifact file with MINIMAL sensitive surface.
-          # This file contains only endpoints and public metadata: no private keys or tokens.
           umask 077
           {
-            echo "instance=${INSTANCE_ID}"
+            echo "instance=${INSTANCE_NAME}"
             echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo "tmate_ssh=${TMATE_SSH}"
             echo "tmate_web=${TMATE_WEB}"
-            echo "tmate_ssh_fingerprint=${TMATE_SSH_FINGERPRINT}"
-            echo ""
-            echo "# Public SSH public key (for audit/reference only):"
-            cat "${SSH_KEY_PATH}.pub" 2>/dev/null || true
+            echo "tmate_ssh_fingerprint=${TMATE_SSH_FP}"
           } > "${CONN_FILE}"
-
-          # Ensure file perms restrict reading to runner user only
           chmod 600 "${CONN_FILE}"
-        shell: bash
 
-      - name: Verify connection file created (no secrets printed)
-        run: |
-          set -euo pipefail
-          if [ ! -f "${CONN_FILE}" ]; then
-            echo "ERROR: connection file missing: ${CONN_FILE}" >&2
-            exit 3
-          fi
-          # Basic integrity checks (no private key content leaked)
-          if grep -q "PRIVATE" "${CONN_FILE}" || grep -q "BEGIN OPENSSH PRIVATE" "${CONN_FILE}" || grep -q "-----BEGIN" "${CONN_FILE}"; then
-            echo "ERROR: connection file appears to contain a private key; aborting upload" >&2
-            exit 4
-          fi
-        shell: bash
+          # Print the live connection to standard output with clear markers for easy copying
+          echo "==== SERVER LIVE CONNECTION ===="
+          echo "${TMATE_SSH}"
+          echo "==== END SERVER LIVE CONNECTION ===="
 
-      - name: Upload connection artifact (official action, latest v4)
-        # This is the official GitHub action to upload artifacts.
+      - name: Upload connection artifact (backup)
         uses: actions/upload-artifact@v4
         with:
-          name: connections-${{ matrix.instance }}-${{ github.run_id }}
+          name: connection-server-1
           path: ${{ env.CONN_FILE }}
-          # retention-days left unspecified -> uses repository/org defaults
 
-      - name: Keep session alive for up to 6 hours (non-printing keepalive)
-        # This step intentionally produces minimal logs (no credentials). It keeps the job alive
-        # ensuring the tmate sessions remain available for the KEEPALIVE_SECONDS window.
+      - name: Spawn background keepalive loop (nohup) and foreground 6h wait
         run: |
           set -euo pipefail
-          # When the runner receives SIGTERM (timeout or cancel), allow graceful exit.
-          trap 'echo "Keepalive terminated at $(date -u)" >&2; exit 0' TERM INT
-          # Perform a foreground timeout to ensure the step respects the job timeout and is tracked.
-          # The inner loop sleeps but does NOT print sensitive content.
-          timeout --foreground "${KEEPALIVE_SECONDS}" bash -c '
-            while true; do
-              sleep 300
-            done
-          '
-        shell: bash
+          nohup bash -c 'while true; do sleep 300; done' >/dev/null 2>&1 & disown || true
+          timeout --foreground "${KEEPALIVE_SECONDS}" bash -c 'while true; do sleep 300; done'
+        timeout-minutes: 360
 
-      - name: Tidy & Record termination (non-sensitive logging only)
+      - name: Finalize (keeps minimal non-sensitive audit info)
         if: always()
         run: |
           set -euo pipefail
-          # Record end timestamp into meta file for post-run auditing. Do NOT append endpoints here.
-          echo "ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${CONN_DIR}/meta-${{ matrix.instance }}.txt"
-          # Ensure meta file perms remain strict
-          chmod 600 "${CONN_DIR}/meta-${{ matrix.instance }}.txt"
-        shell: bash
+          echo "ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${CONN_FILE}"
+          chmod 600 "${CONN_FILE}"
+
+  Server_2:
+    name: Server_2
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      INSTANCE_NAME: server-2
+      SOCKET_PATH: /tmp/tmate-server-2.sock
+      CONN_FILE: ${{ github.workspace }}/connection_link_server_2.txt
+      KEEPALIVE_SECONDS: 21600
+      TMATE_START_TIMEOUT: 60
+      TMATE_RETRIES: 6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y --no-install-recommends tmate openssh-client jq coreutils timeout psmisc
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+      - name: Generate silent ed25519 SSH keypair
+        run: |
+          set -euo pipefail
+          umask 077
+          ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
+          chmod 600 ~/.ssh/id_ed25519
+          chmod 644 ~/.ssh/id_ed25519.pub
+
+      - name: Start tmate session with retries and capture connection
+        run: |
+          set -euo pipefail
+          SOCK="${SOCKET_PATH}"
+          CONN_FILE="${CONN_FILE}"
+          TMATE_SSH=""
+          TMATE_WEB=""
+          TMATE_SSH_FP=""
+          attempt=0
+          rm -f "${SOCK}"
+          while [ $attempt -lt "${TMATE_RETRIES}" ]; do
+            attempt=$((attempt+1))
+            tmate -S "${SOCK}" new-session -d || true
+            ready=0
+            for i in $(seq 1 "${TMATE_START_TIMEOUT}"); do
+              TMATE_SSH=$(tmate -S "${SOCK}" display -p '#{tmate_ssh}' 2>/dev/null || true)
+              TMATE_WEB=$(tmate -S "${SOCK}" display -p '#{tmate_web}' 2>/dev/null || true)
+              TMATE_SSH_FP=$(tmate -S "${SOCK}" display -p '#{tmate_ssh_fingerprint}' 2>/dev/null || true)
+              if [ -n "${TMATE_SSH}" ]; then
+                ready=1
+                break
+              fi
+              sleep 1
+            done
+            if [ "${ready}" -eq 1 ]; then
+              break
+            fi
+            pkill -f "tmate.*${SOCK}" || true
+            sleep 2
+          done
+
+          if [ -z "${TMATE_SSH}" ]; then
+            echo "ERROR: tmate failed to provide an SSH endpoint" >&2
+            exit 1
+          fi
+
+          umask 077
+          {
+            echo "instance=${INSTANCE_NAME}"
+            echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "tmate_ssh=${TMATE_SSH}"
+            echo "tmate_web=${TMATE_WEB}"
+            echo "tmate_ssh_fingerprint=${TMATE_SSH_FP}"
+          } > "${CONN_FILE}"
+          chmod 600 "${CONN_FILE}"
+
+          # Print the live connection to standard output with clear markers for easy copying
+          echo "==== SERVER LIVE CONNECTION ===="
+          echo "${TMATE_SSH}"
+          echo "==== END SERVER LIVE CONNECTION ===="
+
+      - name: Upload connection artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: connection-server-2
+          path: ${{ env.CONN_FILE }}
+
+      - name: Spawn background keepalive loop (nohup) and foreground 6h wait
+        run: |
+          set -euo pipefail
+          nohup bash -c 'while true; do sleep 300; done' >/dev/null 2>&1 & disown || true
+          timeout --foreground "${KEEPALIVE_SECONDS}" bash -c 'while true; do sleep 300; done'
+        timeout-minutes: 360
+
+      - name: Finalize (keeps minimal non-sensitive audit info)
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${CONN_FILE}"
+          chmod 600 "${CONN_FILE}"
+
+  Server_3:
+    name: Server_3
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      INSTANCE_NAME: server-3
+      SOCKET_PATH: /tmp/tmate-server-3.sock
+      CONN_FILE: ${{ github.workspace }}/connection_link_server_3.txt
+      KEEPALIVE_SECONDS: 21600
+      TMATE_START_TIMEOUT: 60
+      TMATE_RETRIES: 6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update -y
+          apt-get install -y --no-install-recommends tmate openssh-client jq coreutils timeout psmisc
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+      - name: Generate silent ed25519 SSH keypair
+        run: |
+          set -euo pipefail
+          umask 077
+          ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 -q
+          chmod 600 ~/.ssh/id_ed25519
+          chmod 644 ~/.ssh/id_ed25519.pub
+
+      - name: Start tmate session with retries and capture connection
+        run: |
+          set -euo pipefail
+          SOCK="${SOCKET_PATH}"
+          CONN_FILE="${CONN_FILE}"
+          TMATE_SSH=""
+          TMATE_WEB=""
+          TMATE_SSH_FP=""
+          attempt=0
+          rm -f "${SOCK}"
+          while [ $attempt -lt "${TMATE_RETRIES}" ]; do
+            attempt=$((attempt+1))
+            tmate -S "${SOCK}" new-session -d || true
+            ready=0
+            for i in $(seq 1 "${TMATE_START_TIMEOUT}"); do
+              TMATE_SSH=$(tmate -S "${SOCK}" display -p '#{tmate_ssh}' 2>/dev/null || true)
+              TMATE_WEB=$(tmate -S "${SOCK}" display -p '#{tmate_web}' 2>/dev/null || true)
+              TMATE_SSH_FP=$(tmate -S "${SOCK}" display -p '#{tmate_ssh_fingerprint}' 2>/dev/null || true)
+              if [ -n "${TMATE_SSH}" ]; then
+                ready=1
+                break
+              fi
+              sleep 1
+            done
+            if [ "${ready}" -eq 1 ]; then
+              break
+            fi
+            pkill -f "tmate.*${SOCK}" || true
+            sleep 2
+          done
+
+          if [ -z "${TMATE_SSH}" ]; then
+            echo "ERROR: tmate failed to provide an SSH endpoint" >&2
+            exit 1
+          fi
+
+          umask 077
+          {
+            echo "instance=${INSTANCE_NAME}"
+            echo "started_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo "tmate_ssh=${TMATE_SSH}"
+            echo "tmate_web=${TMATE_WEB}"
+            echo "tmate_ssh_fingerprint=${TMATE_SSH_FP}"
+          } > "${CONN_FILE}"
+          chmod 600 "${CONN_FILE}"
+
+          # Print the live connection to standard output with clear markers for easy copying
+          echo "==== SERVER LIVE CONNECTION ===="
+          echo "${TMATE_SSH}"
+          echo "==== END SERVER LIVE CONNECTION ===="
+
+      - name: Upload connection artifact (backup)
+        uses: actions/upload-artifact@v4
+        with:
+          name: connection-server-3
+          path: ${{ env.CONN_FILE }}
+
+      - name: Spawn background keepalive loop (nohup) and foreground 6h wait
+        run: |
+          set -euo pipefail
+          nohup bash -c 'while true; do sleep 300; done' >/dev/null 2>&1 & disown || true
+          timeout --foreground "${KEEPALIVE_SECONDS}" bash -c 'while true; do sleep 300; done'
+        timeout-minutes: 360
+
+      - name: Finalize (keeps minimal non-sensitive audit info)
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "ended_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "${CONN_FILE}"
+          chmod 600 "${CONN_FILE}"
