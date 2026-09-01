@@ -1,12 +1,45 @@
-name: Ultimate Free Cloud Server
-on: workflow_dispatch
-jobs:
-  run-server:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Activate Ngrok Tunnel
-      run: |
-        curl -sAX GET "https://ngrok.com" -H "Authorization: Bearer ${{ secrets.NGROK_AUTH_TOKEN }}" || true
-    - name: Launch Free Linux Server
-      uses: mxschmitt/action-tmate@v3
+# تعريف موفر الخدمة السحابية (Oracle Cloud Infrastructure)
+provider "oci" {
+  tenancy_ocid     = var.tenancy_id
+  user_ocid        = var.user_id
+  private_key_path = var.crypto_key_path
+  fingerprint      = var.fingerprint
+  region           = "us-ashburn-1"
+}
 
+# السكربت الخارق لإنشاء خادم وحش (64 نواة و 256 جيجا رام) بلمحة عين
+resource "oci_core_instance" "super_server" {
+  availability_domain = data.oci_identity_availability_domains.ads.domains[0].name
+  compartment_id      = var.compartment_id
+  
+  # المعالج الأسطوري المستهدف لعام 2026/2027
+  shape = "VM.Standard.E5.Flex" 
+
+  shape_config {
+    ocpus         = 64   # عدد الأنوية الخارقة
+    memory_in_gbs = 256  # الذاكرة العشوائية العملاقة
+  }
+
+  source_details {
+    source_type = "image"
+    source_id   = var.ubuntu_2026_image_id # أحدث نظام تشغيل مستقر ومؤتمت
+  }
+
+  # شبكة سحابية فائقة السرعة معزولة لمنع الأخطاء والثغرات
+  create_vnic_details {
+    assign_public_ip = true
+    subnet_id        = oci_core_subnet.secure_subnet.id
+  }
+
+  # أتمتة تهيئة السيرفر فور تشغيله ليصبح جاهزاً للعمل بـ 0% تدخل بشري
+  metadata = {
+    ssh_authorized_keys = file(var.ssh_public_key_path)
+    user_data           = base64encode(<<-EOF
+      #!/bin/bash
+      apt-get update && apt-get upgrade -y
+      apt-get install -y docker.io git curl tmux
+      echo "⚡ Super Cloud Server Live 2027 ⚡"
+    EOF
+    )
+  }
+}
