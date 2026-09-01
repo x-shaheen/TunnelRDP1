@@ -1,23 +1,23 @@
-name: Automated Super Cloud Builder
+name: Ultimate Free Cloud Server 2027
 on: workflow_dispatch
 
 jobs:
-  build-and-launch:
+  launch-infrastructure:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Setup Terraform Environment
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_wrapper: false
-
-    - name: Initialize and Verify Infrastructure
+    - name: Pre-Configure Automated SSH Keys
       run: |
-        echo "⚡ Initializing Terraform Core 2026/2027 ⚡"
-        terraform -v
+        echo "⚡ Engineering Key Generation... ⚡"
+        mkdir -p ~/.ssh
+        ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519
+        chmod 700 ~/.ssh
+        chmod 600 ~/.ssh/id_ed25519
 
     - name: Launch Free Linux Server & Connect Tunnel
       uses: mxschmitt/action-tmate@v3
-      
+      with:
+        limit-access-to-actor: false
+        
