@@ -1,45 +1,21 @@
-# تعريف موفر الخدمة السحابية (Oracle Cloud Infrastructure)
-provider "oci" {
-  tenancy_ocid     = var.tenancy_id
-  user_ocid        = var.user_id
-  private_key_path = var.crypto_key_path
-  fingerprint      = var.fingerprint
-  region           = "us-ashburn-1"
-}
+name: Automated Super Cloud Builder
+on: workflow_dispatch
 
-# السكربت الخارق لإنشاء خادم وحش (64 نواة و 256 جيجا رام) بلمحة عين
-resource "oci_core_instance" "super_server" {
-  availability_domain = data.oci_identity_availability_domains.ads.domains[0].name
-  compartment_id      = var.compartment_id
-  
-  # المعالج الأسطوري المستهدف لعام 2026/2027
-  shape = "VM.Standard.E5.Flex" 
+jobs:
+  build-and-launch:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-  shape_config {
-    ocpus         = 64   # عدد الأنوية الخارقة
-    memory_in_gbs = 256  # الذاكرة العشوائية العملاقة
-  }
+    - name: Setup Terraform Environment
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_wrapper: false
 
-  source_details {
-    source_type = "image"
-    source_id   = var.ubuntu_2026_image_id # أحدث نظام تشغيل مستقر ومؤتمت
-  }
-
-  # شبكة سحابية فائقة السرعة معزولة لمنع الأخطاء والثغرات
-  create_vnic_details {
-    assign_public_ip = true
-    subnet_id        = oci_core_subnet.secure_subnet.id
-  }
-
-  # أتمتة تهيئة السيرفر فور تشغيله ليصبح جاهزاً للعمل بـ 0% تدخل بشري
-  metadata = {
-    ssh_authorized_keys = file(var.ssh_public_key_path)
-    user_data           = base64encode(<<-EOF
-      #!/bin/bash
-      apt-get update && apt-get upgrade -y
-      apt-get install -y docker.io git curl tmux
-      echo "⚡ Super Cloud Server Live 2027 ⚡"
-    EOF
-    )
-  }
-}
+    - name: Initialize and Verify Infrastructure
+      run: |
+        echo "⚡ Initializing Terraform Core 2026/2027 ⚡"
+        terraform -v
+        # هنا يتم وضع أوامر التشغيل السحابية لاحقاً تلقائياً
+        
